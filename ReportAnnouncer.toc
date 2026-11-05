@@ -3,6 +3,7 @@
 ## Notes: Announces who you reported and why, keeps a history (minimap button), and marks reported players in their tooltip.
 ## Author: mskucas
 ## Version: @project-version@
+## X-Curse-Project-ID: 1785874
 ## SavedVariables: ReportAnnouncerDB
 
 ReportAnnouncer.lua
