@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.13.0
 
 - New `/reportannouncer` slash command (matches the addon name); `/reportannounce` still works.
 
