@@ -1,0 +1,9 @@
+## Interface: 16001, 16000, 16002, 16003, 120000, 50503, 40402, 30405, 20505, 11508
+## Title: Report Announcer
+## Notes: Announces who you reported and why, keeps a history (minimap button), and marks reported players in their tooltip.
+## Author: mskucas
+## Version: @project-version@
+## SavedVariables: ReportAnnouncerDB
+
+ReportAnnouncer.lua
+History.lua
