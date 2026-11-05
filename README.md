@@ -33,11 +33,11 @@ that share it (including Classic Forever).
 
 | Command | What it does |
 | --- | --- |
-| `/reportannounce` | Turn all chat announcing on/off (history is still recorded) |
-| `/reportannounce history` | Open the history window |
-| `/reportannounce minimap` | Show/hide the minimap button |
-| `/reportannounce test` | Send a sample message |
-| `/reportannounce check` | Run the group callout check now and explain the result |
+| `/reportannouncer` (or `/reportannounce`) | Turn all chat announcing on/off (history is still recorded) |
+| `/reportannouncer history` | Open the history window |
+| `/reportannouncer minimap` | Show/hide the minimap button |
+| `/reportannouncer test` | Send a sample message |
+| `/reportannouncer check` | Run the group callout check now and explain the result |
 
 ## Notes
 

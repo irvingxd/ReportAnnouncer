@@ -7,10 +7,10 @@
 -- Sent on the button's PreClick so the click's "hardware event" is still valid
 -- (Blizzard blocks addon /say otherwise).
 --
--- Commands: /reportannounce            toggle chat announcing on/off
---           /reportannounce history     open the history window
---           /reportannounce minimap     show/hide the minimap button
---           /reportannounce test        send a sample message
+-- Commands: /reportannouncer            toggle chat announcing on/off
+--           /reportannouncer history     open the history window
+--           /reportannouncer minimap     show/hide the minimap button
+--           /reportannouncer test        send a sample message
 
 local ADDON, ns = ...
 local MAX_LEN = 250
@@ -392,7 +392,7 @@ local function ScheduleGroupCheck()
     C_Timer.After(1.5, function() CheckGroup(false) end) -- let the roster finish loading
 end
 
--- /reportannounce check : run the group check now and explain what it finds
+-- /reportannouncer check : run the group check now and explain what it finds
 function ns.CheckGroupNow()
     wipe(calledOut)
     CheckGroup(true)
@@ -425,12 +425,13 @@ frame:SetScript("OnEvent", function(_, event, addon)
     end
     if event == "PLAYER_LOGIN" then
         if ns.CreateMinimapButton then ns.CreateMinimapButton() end
-        Print(ok and "loaded. Click the minimap button for your report history (/reportannounce for options)."
+        Print(ok and "loaded. Click the minimap button for your report history (/reportannouncer for options)."
                   or "loaded, but could not find the report dialog to hook.")
     end
 end)
 
-SLASH_REPORTANNOUNCER1 = "/reportannounce"
+SLASH_REPORTANNOUNCER1 = "/reportannouncer"
+SLASH_REPORTANNOUNCER2 = "/reportannounce"
 SlashCmdList["REPORTANNOUNCER"] = function(arg)
     local db = InitDB()
     arg = strlower(strtrim(arg or ""))
