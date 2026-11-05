@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- New `/reportannouncer` slash command (matches the addon name); `/reportannounce` still works.
+
 ## 1.12.0
 
 - Announces in `/say`, `/party`, `/raid` (or instance chat) when you report a player:
