@@ -226,9 +226,9 @@ function ns.BuildOptions(page)
     save:SetPoint("BOTTOMLEFT", 0, 0)
     save:SetText("Save")
     local toSimple = CreateFrame("Button", nil, adv, "UIPanelButtonTemplate")
-    toSimple:SetSize(190, 24)
+    toSimple:SetSize(140, 24)
     toSimple:SetPoint("LEFT", save, "RIGHT", 8, 0)
-    toSimple:SetText("Back to simple (resets)")
+    toSimple:SetText("Reset to default")
 
     local function RefreshAdv()
         local text = edit:GetText()
@@ -282,7 +282,7 @@ function ns.BuildOptions(page)
         for k, v in pairs(DEFAULTS) do s[k] = v end
         db.advanced = false
         db.template = Generate(s)
-        ns.Print("message reset to the simple default.")
+        ns.Print("message reset to the default.")
         Show()
     end)
 
