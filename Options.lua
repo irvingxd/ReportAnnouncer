@@ -100,17 +100,28 @@ function ns.BuildOptions(page)
     adv:SetPoint("TOPLEFT", page, "TOPLEFT", 0, -150)
     adv:SetPoint("BOTTOMRIGHT", page, "BOTTOMRIGHT", 0, 0)
 
+    local LABELS = { category = "for", reasons = "the reason:", details = "Details:", zone = "Zone:", date = "Date:" }
     local DEFAULTS = { phrase = "was reported", category = true, reasons = true, details = true, zone = false, date = false }
 
+    local function Clean(text)
+        return ((text or ""):gsub("[%[%]{}]", ""):gsub("^%s+", ""):gsub("%s+$", ""))
+    end
+
+    -- every wording part is editable; the variables stay in place
     local function Generate(s)
-        local phrase = (s.phrase or ""):gsub("[%[%]{}]", ""):gsub("^%s+", ""):gsub("%s+$", "")
+        local phrase = Clean(s.phrase)
+        local L = s.labels
+        local function Part(sep, key, var)
+            local label = Clean(L[key])
+            return "[" .. sep .. (label ~= "" and (label .. " ") or "") .. "{" .. var .. "}]"
+        end
         local t = "{name}" .. (phrase ~= "" and (" " .. phrase) or "")
-        if s.category then t = t .. "[ for {category}]" end
-        if s.reasons then t = t .. "[, the reason: {reasons}]" end
+        if s.category then t = t .. Part(" ", "category", "category") end
+        if s.reasons then t = t .. Part(", ", "reasons", "reasons") end
         t = t .. "."
-        if s.details then t = t .. "[ Details: {details}]" end
-        if s.zone then t = t .. "[ Zone: {zone}]" end
-        if s.date then t = t .. "[ ({date})]" end
+        if s.details then t = t .. Part(" ", "details", "details") end
+        if s.zone then t = t .. Part(" ", "zone", "zone") end
+        if s.date then t = t .. Part(" ", "date", "date") end
         return t
     end
 
@@ -121,42 +132,54 @@ function ns.BuildOptions(page)
             for k, v in pairs(DEFAULTS) do db.simple[k] = v end
             db.advanced = (db.template ~= ns.DEFAULT_TEMPLATE) -- keep an existing custom message
         end
+        db.simple.labels = db.simple.labels or {}
+        for k, v in pairs(LABELS) do
+            if db.simple.labels[k] == nil then db.simple.labels[k] = v end
+        end
         return db, db.simple
     end
 
     ---------------- simple mode ----------------
-    local nameLabel = simple:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    nameLabel:SetPoint("TOPLEFT", 4, -12)
-    nameLabel:SetText("|cff66ccffPlayer name|r")
+    local function Tag(parent, text)
+        local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        fs:SetText("|cff66ccff<" .. text .. ">|r")
+        return fs
+    end
+    local function Input(parent, width, maxLetters)
+        local e = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
+        e:SetSize(width, 24)
+        e:SetAutoFocus(false)
+        e:SetMaxLetters(maxLetters)
+        e:SetScript("OnEscapePressed", e.ClearFocus)
+        e:SetScript("OnEnterPressed", e.ClearFocus)
+        return e
+    end
 
-    local phrase = CreateFrame("EditBox", nil, simple, "InputBoxTemplate")
-    phrase:SetPoint("LEFT", nameLabel, "RIGHT", 12, 0)
-    phrase:SetSize(240, 24)
-    phrase:SetAutoFocus(false)
-    phrase:SetMaxLetters(60)
-    phrase:SetScript("OnEscapePressed", phrase.ClearFocus)
-    phrase:SetScript("OnEnterPressed", phrase.ClearFocus)
+    local ROW = 26
+    -- row 1: <Player name> [was reported]
+    local nameTag = Tag(simple, "Player name")
+    nameTag:SetPoint("TOPLEFT", 4, -8)
+    local phrase = Input(simple, 220, 60)
+    phrase:SetPoint("LEFT", nameTag, "RIGHT", 14, 0)
 
-    local incLabel = simple:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    incLabel:SetPoint("TOPLEFT", 4, -48)
-    incLabel:SetText("Include:")
-    local incChecks = {}
-    local prev
-    for _, c in ipairs({ { "category", "Category" }, { "reasons", "Reasons" }, { "details", "Details" },
+    -- rows 2-6: [x] [wording] <Variable>
+    local rows = {}
+    for i, c in ipairs({ { "category", "Category" }, { "reasons", "Reasons" }, { "details", "Details you typed" },
         { "zone", "Zone" }, { "date", "Date" } }) do
-        local key, text = c[1], c[2]
+        local key, tagText = c[1], c[2]
+        local y = -8 - i * ROW
         local cb = CreateFrame("CheckButton", nil, simple, "UICheckButtonTemplate")
         cb:SetSize(24, 24)
-        if prev then cb:SetPoint("LEFT", prev, "RIGHT", 62, 0) else cb:SetPoint("LEFT", incLabel, "RIGHT", 6, 0) end
-        local label = simple:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-        label:SetPoint("LEFT", cb, "RIGHT", 2, 0)
-        label:SetText(text)
-        incChecks[key] = cb
-        prev = cb
+        cb:SetPoint("TOPLEFT", -2, y + 4)
+        local input = Input(simple, 150, 40)
+        input:SetPoint("TOPLEFT", 40, y + 2)
+        local tag = Tag(simple, tagText)
+        tag:SetPoint("LEFT", input, "RIGHT", 12, 0)
+        rows[key] = { cb = cb, input = input }
     end
 
     local sPreviewTitle = simple:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    sPreviewTitle:SetPoint("TOPLEFT", 4, -84)
+    sPreviewTitle:SetPoint("TOPLEFT", 4, -8 - 6 * ROW - 8)
     sPreviewTitle:SetText("Preview")
     local sPreview = simple:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     sPreview:SetPoint("TOPLEFT", sPreviewTitle, "BOTTOMLEFT", 0, -4)
@@ -171,12 +194,29 @@ function ns.BuildOptions(page)
     local function ApplySimple()
         local db, s = Cfg()
         s.phrase = phrase:GetText()
-        for key, cb in pairs(incChecks) do s[key] = cb:GetChecked() and true or false end
+        for key, r in pairs(rows) do
+            s[key] = r.cb:GetChecked() and true or false
+            s.labels[key] = r.input:GetText()
+        end
         db.template = Generate(s)
         sPreview:SetText(ns.RenderTemplate(db.template, ns.SAMPLE_VARS()))
     end
+    local function LoadSimple()
+        local db, s = Cfg()
+        phrase:SetText(s.phrase or "")
+        phrase:SetCursorPosition(0)
+        for key, r in pairs(rows) do
+            r.cb:SetChecked(s[key])
+            r.input:SetText(s.labels[key] or "")
+            r.input:SetCursorPosition(0)
+        end
+        sPreview:SetText(ns.RenderTemplate(db.template, ns.SAMPLE_VARS()))
+    end
     phrase:SetScript("OnTextChanged", function(_, user) if user then ApplySimple() end end)
-    for _, cb in pairs(incChecks) do cb:SetScript("OnClick", ApplySimple) end
+    for _, r in pairs(rows) do
+        r.cb:SetScript("OnClick", ApplySimple)
+        r.input:SetScript("OnTextChanged", function(_, user) if user then ApplySimple() end end)
+    end
 
     ---------------- advanced mode ----------------
     local aTitle = adv:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -271,15 +311,14 @@ function ns.BuildOptions(page)
             edit:SetCursorPosition(0)
             RefreshAdv()
         else
-            phrase:SetText(s.phrase or "")
-            for key, cb in pairs(incChecks) do cb:SetChecked(s[key]) end
-            sPreview:SetText(ns.RenderTemplate(db.template, ns.SAMPLE_VARS()))
+            LoadSimple()
         end
     end
     toAdv:SetScript("OnClick", function() ns.InitDB().advanced = true; Show() end)
     toSimple:SetScript("OnClick", function()
         local db, s = Cfg()
         for k, v in pairs(DEFAULTS) do s[k] = v end
+        for k, v in pairs(LABELS) do s.labels[k] = v end
         db.advanced = false
         db.template = Generate(s)
         ns.Print("message reset to the default.")
