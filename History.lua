@@ -11,6 +11,7 @@ local RIGHT_W = 64 -- space reserved for the delete button on each row
 local TABS = {
     { key = "personal", label = "Personal List", icon = "Interface\\Icons\\INV_Misc_Note_01" },
     { key = "imported", label = "Imported Lists", icon = "Interface\\Icons\\INV_Letter_02" },
+    { key = "messages", label = "Messages", icon = "Interface\\Icons\\INV_Scroll_03" },
     { key = "stats", label = "Statistics", icon = "Interface\\Icons\\INV_Misc_Book_09" },
     { key = "options", label = "Options", icon = "Interface\\Icons\\INV_Misc_Gear_01" },
 }
@@ -331,6 +332,8 @@ function ns.RefreshHistory()
             .. reports .. " report" .. (reports == 1 and "" or "s")
     elseif tab == "stats" then
         RefreshStats()
+    elseif tab == "messages" then
+        if ns.RefreshMessages then ns.RefreshMessages() end
     elseif tab == "options" then
         if ns.RefreshOptions then ns.RefreshOptions() end
     end
@@ -437,6 +440,12 @@ local function CreateWindow()
     options:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -22, 52)
     if ns.BuildOptions then ns.BuildOptions(options) end
     f.pages.options = options
+
+    local messages = CreateFrame("Frame", nil, f)
+    messages:SetPoint("TOPLEFT", f, "TOPLEFT", CONTENT_X, -50)
+    messages:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -22, 52)
+    if ns.BuildMessages then ns.BuildMessages(messages) end
+    f.pages.messages = messages
 
     -- bottom bar
     f.clear = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")

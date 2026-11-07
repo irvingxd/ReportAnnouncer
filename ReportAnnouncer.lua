@@ -29,6 +29,10 @@ ns.Print = Print
 ---------------------------------------------------------------------------
 ns.DEFAULT_TEMPLATE = "{name} was reported[ for {category}][, the reason: {reasons}].[ Details: {details}]"
 ns.DEFAULT_MESSAGE = "{name} was reported for {category}, the reason: {reason}. Details: {details}"
+ns.DEFAULT_CALLOUTS = {
+    "Heads up: {name} was previously reported by me for {category}, the reason: {reason}. Details: {details}",
+    "FYI, I reported {name} before for {category}, the reason: {reason}. Details: {details}",
+}
 ns.TEMPLATE_VARS = { name = true, category = true, reason = true, reasons = true, details = true, zone = true, date = true }
 local MAX_TEMPLATE = 220
 
@@ -139,13 +143,15 @@ local function InitDB()
     db.imports = db.imports or {} -- lists shared by other people, kept apart from db.history
     if db.tooltip == nil then db.tooltip = true end
     if db.callout == nil then db.callout = false end -- opt-in
-    if not db.message then -- keep a message customised in an earlier version
-        local old = db.template
-        db.message = (old and old ~= ns.DEFAULT_TEMPLATE and ns.ValidateTemplate(old)) and old or ns.DEFAULT_MESSAGE
+    if not db.messages then -- keep a message customised in an earlier version
+        local old = db.message or db.template
+        if old and old ~= ns.DEFAULT_TEMPLATE and ns.ValidateTemplate(old) then
+            db.messages = { old }
+        end
     end
-    if not ns.ValidateTemplate(db.message) then db.message = ns.DEFAULT_MESSAGE end
-    db.template = ns.CompileMessage(db.message)
-    db.simple, db.advanced = nil, nil -- from an unreleased editor draft
+    db.messages = db.messages or { ns.DEFAULT_MESSAGE }
+    db.calloutMessages = db.calloutMessages or { ns.DEFAULT_CALLOUTS[1], ns.DEFAULT_CALLOUTS[2] }
+    db.message, db.template, db.simple, db.advanced = nil, nil, nil, nil -- older formats
     db.minimap = db.minimap or { angle = 215 }
     db.announce = db.announce or { say = true, party = true, raid = true }
     if db.disabled then -- migrate the old single on/off switch
@@ -156,10 +162,19 @@ local function InitDB()
 end
 ns.InitDB = InitDB
 
-function ns.SetMessage(text)
+-- Pick one of the saved messages at random ("report" = when you report someone,
+-- "callout" = when a reported player is in your group) and fill in the variables.
+function ns.RenderMessage(kind, vars)
     local db = InitDB()
-    db.message = text
-    db.template = ns.CompileMessage(text)
+    local list = (kind == "callout") and db.calloutMessages or db.messages
+    local valid = {}
+    for _, text in ipairs(list) do
+        if ns.ValidateTemplate(text) then valid[#valid + 1] = text end
+    end
+    if #valid == 0 then
+        valid[1] = (kind == "callout") and ns.DEFAULT_CALLOUTS[1] or ns.DEFAULT_MESSAGE
+    end
+    return ns.RenderTemplate(ns.CompileMessage(valid[math.random(#valid)]), vars)
 end
 
 -- Is announcing allowed in this chat channel? (instance chat follows "party")
@@ -381,7 +396,7 @@ local function Announce()
     end
     if not ChannelAllowed(channel) then return end
 
-    local msg = ns.RenderTemplate(InitDB().template, {
+    local msg = ns.RenderMessage("report", {
         name = name,
         category = category or "",
         reasons = table.concat(reasons, ", "),
@@ -463,21 +478,14 @@ local calledOut = {}      -- GUIDs already announced during this group
 local checkPending = false
 
 local function BuildCallout(name, e, channel)
-    local category = e.category or "misconduct"
-    local reasons = (e.reasons and e.reasons ~= "") and e.reasons or nil
-    local msg
-    if channel == "RAID" then
-        msg = "Raid notice: " .. name .. " was previously reported by me for " .. category
-            .. (reasons and (": " .. reasons) or "") .. "."
-    elseif math.random(2) == 1 then
-        msg = "Heads up: " .. name .. " was previously reported by me for " .. category
-            .. (reasons and (" (" .. reasons .. ")") or "") .. "."
-    else
-        msg = "FYI, I reported " .. name .. " before for " .. category
-            .. (reasons and (": " .. reasons) or "") .. ". Let's keep an eye out."
-    end
-    if e.comment then msg = msg .. " Details: " .. e.comment end
-    return msg
+    return ns.RenderMessage("callout", {
+        name = name,
+        category = e.category or "misconduct",
+        reasons = e.reasons or "",
+        details = e.comment or "",
+        zone = e.zone or "",
+        date = date("%Y-%m-%d", e.t or 0),
+    })
 end
 
 local function CheckGroup(verbose)
@@ -586,7 +594,7 @@ SlashCmdList["REPORTANNOUNCER"] = function(arg)
     if arg == "test" then
         local ch = PickChannel()
         Print("sending a test message to " .. ch .. ".")
-        Send(ns.RenderTemplate(db.template, ns.SAMPLE_VARS()), ch)
+        Send(ns.RenderMessage("report", ns.SAMPLE_VARS()), ch)
     elseif arg == "options" or arg == "config" or arg == "template" then
         if ns.OpenOptions then ns.OpenOptions() end
     elseif arg == "history" or arg == "show" or arg == "list" then

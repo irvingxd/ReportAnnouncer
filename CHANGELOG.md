@@ -5,8 +5,8 @@
 - **Sharing:** Export your list as an encoded string (`RA1:...`) and Import lists other people shared. Strings carry a checksum, so damaged or edited ones are rejected, and imported text is sanitised.
 - **Imported Lists** are kept separate from your own list and are never used for tooltips or group callouts.
 - **Statistics** tab: what people get reported for (categories, reasons), where, and repeat offenders; optionally including imported lists.
-- The window now has side tabs: Personal List, Imported Lists, Statistics, Options. All settings (chat switches, tooltips, callout, message) moved into the Options tab; the Game Menu entry just opens it.
-- Custom message: one sentence with `{name}` `{category}` `{reason}` `{details}` `{zone}` `{date}` (click a button to insert). If a variable is empty its own words are dropped automatically; `[ ... ]` optional blocks still work for full control. Live preview and reset.
+- The window now has side tabs: Personal List, Imported Lists, Messages, Statistics, Options. Chat switches, tooltips and callout moved into the Options tab; the Game Menu entry just opens it.
+- Messages tab: customize the report message and the "reported player joined your group" callout. Use `{name}` `{category}` `{reason}` `{details}` `{zone}` `{date}` (click a button to insert); empty variables drop their own words. Press **+ Add message** to add more variants (up to 10 each) — one is picked at random every time. Live preview and reset to default.
 - **Community tally** (opt-in): addon users in your guild, groups, one chat channel (`/reportannouncer channel <name>`) and friends (character + Battle.net) share only their report count, never names; the total is shown in Statistics.
 - New commands: `/reportannouncer stats`, `export`, `import`.
 - **Clear all** moved to the left, **Close** on the right.

@@ -17,7 +17,7 @@ that share it (including Classic Forever).
 - **Community tally (opt-in):** guild, group, one chosen channel and friends (character + Battle.net) who run the addon share just a report count (no names); the total shows in Statistics.
 - **Statistics tab:** what people get reported for, reasons, zones and repeat offenders.
 - **Side tabs:** Personal List, Imported Lists, Statistics, Options.
-- **Custom message:** write your own sentence in the Options tab with `{name}`, `{category}`, `{reason}`, `{details}`, `{zone}`, `{date}`; empty variables drop their own words automatically.
+- **Custom messages:** in the Messages tab, edit the report message and the group callout, and add more variants with **+** (one is picked at random). Variables: `{name}`, `{category}`, `{reason}`, `{details}`, `{zone}`, `{date}`; empty variables drop their own words.
 - **Minimap button** that opens your report history: name, category and reasons, your
   details, the zone (including sub-zone) and the date.
 - **Tooltip summary** ("Reported by you") when you mouse over a player you reported.
@@ -41,7 +41,7 @@ that share it (including Classic Forever).
 | `/reportannouncer` (or `/reportannounce`) | Turn all chat announcing on/off (history is still recorded) |
 | `/reportannouncer history` | Open the history window |
 | `/reportannouncer minimap` | Show/hide the minimap button |
-| `/reportannouncer options` | Open the options (custom message) |
+| `/reportannouncer options` | Open the options (settings) |
 | `/reportannouncer stats` | Open the Statistics tab |
 | `/reportannouncer export` / `import` | Share your list / import someone else's |
 | `/reportannouncer test` | Send a sample message |
