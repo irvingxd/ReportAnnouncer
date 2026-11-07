@@ -93,19 +93,35 @@ function ns.BuildOptions(page)
     sub:SetPoint("TOPLEFT", 4, -126)
     sub:SetText("Message sent to chat when you report a player")
 
-    local edit = CreateFrame("EditBox", nil, page, "InputBoxTemplate")
-    edit:SetPoint("TOPLEFT", sub, "BOTTOMLEFT", 6, -10)
-    edit:SetPoint("RIGHT", page, "RIGHT", -8, 0)
-    edit:SetHeight(38)
-    edit:SetFontObject("GameFontHighlightLarge")
-    edit:SetTextInsets(6, 6, 2, 2)
+    -- tall multi-line box (normal font) so the whole message is visible
+    local box = CreateFrame("Frame", nil, page, BackdropTemplateMixin and "BackdropTemplate" or nil)
+    box:SetPoint("TOPLEFT", sub, "BOTTOMLEFT", 0, -8)
+    box:SetPoint("RIGHT", page, "RIGHT", -8, 0)
+    box:SetHeight(66)
+    if box.SetBackdrop then
+        box:SetBackdrop({
+            bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+            tile = true, tileSize = 16, edgeSize = 14,
+            insets = { left = 3, right = 3, top = 3, bottom = 3 },
+        })
+        box:SetBackdropColor(0, 0, 0, 0.6)
+        box:SetBackdropBorderColor(0.7, 0.7, 0.7, 1)
+    end
+    local edit = CreateFrame("EditBox", nil, box)
+    edit:SetPoint("TOPLEFT", 8, -7)
+    edit:SetPoint("BOTTOMRIGHT", -8, 7)
+    edit:SetMultiLine(true)
+    edit:SetFontObject("GameFontHighlight")
     edit:SetAutoFocus(false)
     edit:SetMaxLetters(220)
     edit:SetScript("OnEscapePressed", edit.ClearFocus)
     edit:SetScript("OnEnterPressed", edit.ClearFocus)
+    box:EnableMouse(true)
+    box:SetScript("OnMouseDown", function() edit:SetFocus() end)
 
     local help = page:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    help:SetPoint("TOPLEFT", edit, "BOTTOMLEFT", -6, -8)
+    help:SetPoint("TOPLEFT", box, "BOTTOMLEFT", 0, -8)
     help:SetWidth(456)
     help:SetJustifyH("LEFT")
     help:SetText("Variables: {name} (required)  {category}  {reasons}  {details}  {zone}  {date}\n"
@@ -149,7 +165,14 @@ function ns.BuildOptions(page)
             save:Disable()
         end
     end
-    edit:SetScript("OnTextChanged", Refresh)
+    edit:SetScript("OnTextChanged", function(self)
+        local text = self:GetText()
+        if text:find("[\r\n]") then -- single-line message: drop line breaks
+            self:SetText((text:gsub("[\r\n]", "")))
+            return
+        end
+        Refresh()
+    end)
 
     save:SetScript("OnClick", function()
         local text = edit:GetText()
