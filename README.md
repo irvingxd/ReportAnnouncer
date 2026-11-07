@@ -13,6 +13,7 @@ that share it (including Classic Forever).
 
   `Rutio Argento was reported for Cheating, the reason: Hacking, Botting. Details: botting forever fishing`
 
+- **Custom message:** change the wording in the options panel with `{name}`, `{category}`, `{reasons}`, `{details}`, `{zone}`, `{date}` and optional `[ ... ]` parts.
 - **Minimap button** that opens your report history: name, category and reasons, your
   details, the zone (including sub-zone) and the date.
 - **Tooltip summary** ("Reported by you") when you mouse over a player you reported.
@@ -36,6 +37,7 @@ that share it (including Classic Forever).
 | `/reportannouncer` (or `/reportannounce`) | Turn all chat announcing on/off (history is still recorded) |
 | `/reportannouncer history` | Open the history window |
 | `/reportannouncer minimap` | Show/hide the minimap button |
+| `/reportannouncer options` | Open the options (custom message) |
 | `/reportannouncer test` | Send a sample message |
 | `/reportannouncer check` | Run the group callout check now and explain the result |
 
