@@ -8,6 +8,7 @@ function ns.RefreshOptions()
     local db = ns.InitDB()
     if checks.tip then checks.tip:SetChecked(db.tooltip) end
     if checks.callout then checks.callout:SetChecked(db.callout) end
+    if checks.share then checks.share:SetChecked(db.shareCount) end
     for key, cb in pairs(checks.chan or {}) do cb:SetChecked(db.announce[key]) end
 end
 
@@ -67,15 +68,37 @@ function ns.BuildOptions(page)
     calloutLabel:SetPoint("LEFT", checks.callout, "RIGHT", 2, 0)
     calloutLabel:SetText("Call out reported players who are in my group")
 
+    -- community tally switch (opt-in)
+    checks.share = CreateFrame("CheckButton", nil, page, "UICheckButtonTemplate")
+    checks.share:SetSize(24, 24)
+    checks.share:SetPoint("TOPLEFT", 0, -86)
+    checks.share:SetScript("OnClick", function(self)
+        local on = self:GetChecked() and true or false
+        ns.InitDB().shareCount = on
+        if on and ns.BroadcastCount then ns.BroadcastCount(true) end
+    end)
+    checks.share:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Community tally")
+        GameTooltip:AddLine("Sends only how many reports you have (a number, no names) to guild, group, channel and friend (character + Battle.net) contacts who also use the addon, and shows the combined total in Statistics. Off by default.", 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    checks.share:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    local shareLabel = page:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    shareLabel:SetPoint("LEFT", checks.share, "RIGHT", 2, 0)
+    shareLabel:SetText("Share my report count with other addon users")
+
     -- message template
     local sub = page:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    sub:SetPoint("TOPLEFT", 4, -100)
+    sub:SetPoint("TOPLEFT", 4, -126)
     sub:SetText("Message sent to chat when you report a player")
 
     local edit = CreateFrame("EditBox", nil, page, "InputBoxTemplate")
     edit:SetPoint("TOPLEFT", sub, "BOTTOMLEFT", 6, -10)
     edit:SetPoint("RIGHT", page, "RIGHT", -8, 0)
-    edit:SetHeight(24)
+    edit:SetHeight(38)
+    edit:SetFontObject("GameFontHighlightLarge")
+    edit:SetTextInsets(6, 6, 2, 2)
     edit:SetAutoFocus(false)
     edit:SetMaxLetters(220)
     edit:SetScript("OnEscapePressed", edit.ClearFocus)

@@ -88,6 +88,7 @@ local function InitDB()
     ReportAnnouncerDB = ReportAnnouncerDB or {}
     local db = ReportAnnouncerDB
     db.history = db.history or {}
+    db.peers = db.peers or {} -- community tally: other addon users' report counts
     db.imports = db.imports or {} -- lists shared by other people, kept apart from db.history
     if db.tooltip == nil then db.tooltip = true end
     if db.callout == nil then db.callout = false end -- opt-in
@@ -533,6 +534,8 @@ SlashCmdList["REPORTANNOUNCER"] = function(arg)
         if ns.ToggleHistory then ns.ToggleHistory() end
     elseif arg == "stats" or arg == "statistics" then
         if ns.ShowTab then ns.ShowTab("stats") end
+    elseif arg:match("^channel") then
+        if ns.SetShareChannel then ns.SetShareChannel(arg:match("^channel%s*(.-)$")) end
     elseif arg == "export" or arg == "share" then
         if ns.ShowExport then ns.ShowExport() end
     elseif arg == "import" then

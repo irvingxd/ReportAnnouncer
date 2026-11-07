@@ -9,5 +9,6 @@
 ReportAnnouncer.lua
 Stats.lua
 Share.lua
+Comm.lua
 History.lua
 Options.lua

@@ -14,6 +14,7 @@ that share it (including Classic Forever).
   `Rutio Argento was reported for Cheating, the reason: Hacking, Botting. Details: botting forever fishing`
 
 - **Share your list:** *Export* gives an encoded string (`RA1:...`) you can send to others; *Import* adds a list someone sent you. Imported lists are kept separate and never appear in tooltips or callouts. Strings are checksummed (this is encoding, not encryption).
+- **Community tally (opt-in):** guild, group, one chosen channel and friends (character + Battle.net) who run the addon share just a report count (no names); the total shows in Statistics.
 - **Statistics tab:** what people get reported for, reasons, zones and repeat offenders.
 - **Side tabs:** Personal List, Imported Lists, Statistics, Options.
 - **Custom message:** change the wording in the Options tab with `{name}`, `{category}`, `{reasons}`, `{details}`, `{zone}`, `{date}` and optional `[ ... ]` parts.

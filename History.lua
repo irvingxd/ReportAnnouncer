@@ -257,8 +257,17 @@ local function RefreshStats()
         end
     end
 
+    if db.shareCount and ns.CommunityTally then
+        local users, total = ns.CommunityTally()
+        Text("GameFontNormal", "Community")
+        y = y - 4
+        Text("GameFontHighlight", users .. " addon user" .. (users == 1 and "" or "s")
+            .. " seen (guild/groups), " .. total .. " reports in total")
+    else
+        Text("GameFontDisable", "Community tally is off. Turn it on in Options to count reports with other addon users.")
+    end
     if s.total == 0 then
-        Text("GameFontDisable", "No reports to analyse yet.")
+        Text("GameFontDisable", "No reports to analyse yet.", 10)
     else
         Text("GameFontHighlight", s.total .. " report" .. (s.total == 1 and "" or "s")
             .. " on " .. s.players .. " player" .. (s.players == 1 and "" or "s"))
