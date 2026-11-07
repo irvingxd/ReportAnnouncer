@@ -153,6 +153,28 @@ local function PickChannel()
     return "SAY"
 end
 
+-- Is this player (GUID if known, else name) one of the people in my party/raid?
+local function IsInMyGroup(guid, name)
+    local units = {}
+    if IsInRaid and IsInRaid() then
+        for i = 1, (GetNumGroupMembers and GetNumGroupMembers() or 0) do units[#units + 1] = "raid" .. i end
+    elseif IsInGroup and IsInGroup() then
+        for i = 1, 4 do units[#units + 1] = "party" .. i end
+    end
+    for _, unit in ipairs(units) do
+        if UnitExists(unit) then
+            local ug = UnitGUID(unit)
+            if guid and ug and not IsSecret(ug) then
+                if ug == guid then return true end
+            else
+                local un = UnitName(unit)
+                if un and not IsSecret(un) and NamesMatch(name, un) then return true end
+            end
+        end
+    end
+    return false
+end
+
 local function Send(text, channel)
     local send = (C_ChatInfo and C_ChatInfo.SendChatMessage) or SendChatMessage
     while #text > MAX_LEN do
@@ -229,7 +251,12 @@ local function Announce()
         comment = (comment and comment ~= "") and comment or nil,
     })
 
+    -- Group chat is only for reports of someone in the group; anyone else goes to /say
     local channel = PickChannel()
+    if channel ~= "SAY" then
+        local okIn, inGroup = pcall(IsInMyGroup, okGuid and guid or nil, name)
+        if okIn and not inGroup then channel = "SAY" end
+    end
     if not ChannelAllowed(channel) then return end
 
     local msg = name .. " was reported"

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.14.0
+
+- Reports of players who are not in your party or raid are announced in `/say` instead of group chat; group chat is only used when the reported player is in the group.
+
 ## 1.13.0
 
 - New `/reportannouncer` slash command (matches the addon name); `/reportannounce` still works.

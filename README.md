@@ -9,7 +9,7 @@ that share it (including Classic Forever).
 ## Features
 
 - **Chat announcement** when you press *Report*: `/raid` if you're in a raid, `/party`
-  if you're in a party (instance chat in LFG groups), otherwise `/say`:
+  if you're in a party (instance chat in LFG groups), otherwise `/say`. Reports of players who are not in your group go to `/say` instead:
 
   `Rutio Argento was reported for Cheating, the reason: Hacking, Botting. Details: botting forever fishing`
 
