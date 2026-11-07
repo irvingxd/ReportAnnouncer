@@ -124,6 +124,89 @@ local function SkinButton(b, t)
     ButtonText(b)
 end
 
+-- the red close X in the corner
+local function SkinClose(b, t)
+    if not b.raSkin then
+        local s = CreateFrame("Frame", nil, b, BackdropTemplateMixin and "BackdropTemplate" or nil)
+        s:SetPoint("TOPLEFT", 6, -6)
+        s:SetPoint("BOTTOMRIGHT", -6, 6)
+        s:SetFrameLevel(math.max(b:GetFrameLevel() - 1, 0))
+        s.raSkinFrame = true
+        b.raSkin = s
+        b.raX = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        b.raX:SetPoint("CENTER")
+        b.raX:SetText("X")
+        b:HookScript("OnEnter", function(self)
+            local c = Cur()
+            if c.flat and self.raSkin.SetBackdropBorderColor then self.raSkin:SetBackdropBorderColor(Unpack(c.btnHover)) end
+        end)
+        b:HookScript("OnLeave", function(self)
+            local c = Cur()
+            if c.flat and self.raSkin.SetBackdropBorderColor then self.raSkin:SetBackdropBorderColor(Unpack(c.btnBorder)) end
+        end)
+    end
+    if b.raTheme ~= Key() then
+        b.raTheme = Key()
+        local a = t.flat and 0 or 1
+        for _, r in ipairs({ b:GetRegions() }) do
+            if r ~= b.raX and r:GetObjectType() == "Texture" then r:SetAlpha(a) end
+        end
+        for _, g in ipairs({ "GetNormalTexture", "GetPushedTexture", "GetHighlightTexture", "GetDisabledTexture" }) do
+            local tx = b[g] and b[g](b)
+            if tx then tx:SetAlpha(a) end
+        end
+        b.raSkin:SetShown(t.flat)
+        b.raX:SetShown(t.flat)
+        if t.flat and b.raSkin.SetBackdrop then
+            b.raSkin:SetBackdrop({ bgFile = FLAT, edgeFile = FLAT, edgeSize = 1, insets = { left = 1, right = 1, top = 1, bottom = 1 } })
+            b.raSkin:SetBackdropColor(Unpack(t.btnBg))
+            b.raSkin:SetBackdropBorderColor(Unpack(t.btnBorder))
+        end
+    end
+end
+
+-- scrollbars: flat thumb, no arrow buttons
+local function SkinScroll(sf, t)
+    local bar = sf.ScrollBar or (sf:GetName() and _G[sf:GetName() .. "ScrollBar"])
+    if not bar or not bar.GetThumbTexture then return end
+    if sf.raTheme == Key() then return end
+    sf.raTheme = Key()
+    local thumb = bar:GetThumbTexture()
+    local up = sf.ScrollUpButton or bar.ScrollUpButton or (bar:GetName() and _G[bar:GetName() .. "ScrollUpButton"])
+    local down = sf.ScrollDownButton or bar.ScrollDownButton or (bar:GetName() and _G[bar:GetName() .. "ScrollDownButton"])
+    for _, btn in ipairs({ up or false, down or false }) do
+        if btn then
+            btn:SetAlpha(t.flat and 0 or 1)
+            btn:EnableMouse(not t.flat)
+        end
+    end
+    for _, r in ipairs({ bar:GetRegions() }) do
+        if r ~= thumb and r:GetObjectType() == "Texture" then r:SetAlpha(t.flat and 0 or 1) end
+    end
+    if not bar.raTrack then
+        bar.raTrack = bar:CreateTexture(nil, "BACKGROUND")
+        bar.raTrack:SetWidth(6)
+        bar.raTrack:SetPoint("TOP", 0, 18)
+        bar.raTrack:SetPoint("BOTTOM", 0, -18)
+    end
+    if t.flat then
+        bar.raTrack:SetColorTexture(Unpack(t.boxBg))
+        bar.raTrack:Show()
+        bar:SetThumbTexture(FLAT)
+        thumb = bar:GetThumbTexture()
+        thumb:SetTexCoord(0, 1, 0, 1)
+        thumb:SetSize(6, 36)
+        thumb:SetVertexColor(Unpack(t.btnBorder))
+    else
+        bar.raTrack:Hide()
+        bar:SetThumbTexture("Interface\\Buttons\\UI-ScrollBar-Knob")
+        thumb = bar:GetThumbTexture()
+        thumb:SetTexCoord(0.20, 0.80, 0.125, 0.875)
+        thumb:SetSize(18, 24)
+        thumb:SetVertexColor(1, 1, 1)
+    end
+end
+
 local ACCENT_FONTS = { "GameFontNormal", "GameFontNormalLarge", "GameFontNormalSmall" }
 
 local function Walk(frame, t)
@@ -140,6 +223,8 @@ local function Walk(frame, t)
     for _, c in ipairs({ frame:GetChildren() }) do
         if not c.raSkinFrame then
             Walk(c, t)
+            if c.raClose then SkinClose(c, t) end
+            if c:GetObjectType() == "ScrollFrame" then SkinScroll(c, t) end
             if c:GetObjectType() == "Button" and c:GetFontString() and not c.raNoSkin then SkinButton(c, t) end
         end
     end

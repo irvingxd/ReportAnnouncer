@@ -417,6 +417,8 @@ local function CreateWindow()
 
     local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", -5, -5)
+    close.raClose = true
+    close.raNoSkin = true
 
     -- side tabs
     f.tabButtons = {}
