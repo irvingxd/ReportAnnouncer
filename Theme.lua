@@ -152,14 +152,19 @@ end
 local function SkinClose(b, t)
     if not b.raSkin then
         local s = CreateFrame("Frame", nil, b, BackdropTemplateMixin and "BackdropTemplate" or nil)
-        s:SetPoint("TOPLEFT", 6, -6)
-        s:SetPoint("BOTTOMRIGHT", -6, 6)
+        s:SetPoint("TOPLEFT", 4, -4)
+        s:SetPoint("BOTTOMRIGHT", -4, 4)
         s:SetFrameLevel(math.max(b:GetFrameLevel() - 1, 0))
         s.raSkinFrame = true
         b.raSkin = s
-        b.raX = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        b.raX:SetPoint("CENTER", 2, -1)
-        b.raX:SetText("X")
+        b.raCross = {}
+        for _, rot in ipairs({ math.pi / 4, -math.pi / 4 }) do
+            local tx = s:CreateTexture(nil, "OVERLAY")
+            tx:SetSize(12, 2)
+            tx:SetPoint("CENTER")
+            if tx.SetRotation then tx:SetRotation(rot) end
+            b.raCross[#b.raCross + 1] = tx
+        end
         b:HookScript("OnEnter", function(self)
             local c = Cur()
             if c.flat and self.raSkin.SetBackdropBorderColor then self.raSkin:SetBackdropBorderColor(Unpack(c.btnHover)) end
@@ -173,15 +178,16 @@ local function SkinClose(b, t)
         b.raTheme = Key()
         local a = t.flat and 0 or 1
         for _, r in ipairs({ b:GetRegions() }) do
-            if r ~= b.raX and r:GetObjectType() == "Texture" then r:SetAlpha(a) end
+            if r:GetObjectType() == "Texture" then r:SetAlpha(a) end
         end
         for _, g in ipairs({ "GetNormalTexture", "GetPushedTexture", "GetHighlightTexture", "GetDisabledTexture" }) do
             local tx = b[g] and b[g](b)
             if tx then tx:SetAlpha(a) end
         end
         b.raSkin:SetShown(t.flat)
-        b.raX:SetShown(t.flat)
-        b:SetShown(not t.flat) -- the Close button is enough in the flat theme
+        if t.flat then
+            for _, tx in ipairs(b.raCross) do tx:SetColorTexture(Unpack(t.btnText)) end
+        end
         if t.flat and b.raSkin.SetBackdrop then
             b.raSkin:SetBackdrop({ bgFile = FLAT, edgeFile = FLAT, edgeSize = 1, insets = { left = 1, right = 1, top = 1, bottom = 1 } })
             b.raSkin:SetBackdropColor(Unpack(t.btnBg))
