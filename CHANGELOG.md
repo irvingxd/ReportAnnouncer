@@ -1,9 +1,14 @@
 # Changelog
 
-## 1.15.0
+## 2.0.0
 
-- Options panel (Game Menu > Options > AddOns > Report Announcer, or `/reportannouncer options`): customise the announcement with variables `{name}` (required), `{category}`, `{reasons}`, `{details}`, `{zone}`, `{date}`, optional `[ ... ]` parts, live preview and reset.
-- History window: **Clear all** moved to the left, **Close** (and **Options**) on the right.
+New:
+
+- Share your list
+- Imported Lists
+- Statistics
+- Community tally (opt-in, off by default)
+- and more little things
 
 ## 1.14.0
 

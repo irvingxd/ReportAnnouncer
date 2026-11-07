@@ -7,5 +7,10 @@
 ## SavedVariables: ReportAnnouncerDB
 
 ReportAnnouncer.lua
+Theme.lua
+Stats.lua
+Share.lua
+Comm.lua
+Messages.lua
 History.lua
 Options.lua
