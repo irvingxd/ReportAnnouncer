@@ -28,7 +28,8 @@ ns.Print = Print
 --   [ ... ]  optional block: left out when a variable inside it is empty
 ---------------------------------------------------------------------------
 ns.DEFAULT_TEMPLATE = "{name} was reported[ for {category}][, the reason: {reasons}].[ Details: {details}]"
-ns.TEMPLATE_VARS = { name = true, category = true, reasons = true, details = true, zone = true, date = true }
+ns.DEFAULT_MESSAGE = "{name} was reported for {category}, the reason: {reason}. Details: {details}"
+ns.TEMPLATE_VARS = { name = true, category = true, reason = true, reasons = true, details = true, zone = true, date = true }
 local MAX_TEMPLATE = 220
 
 -- Replace {vars} in text. Second result is true if a variable in it was empty.
@@ -36,6 +37,7 @@ local function Fill(text, vars)
     local empty = false
     local out = text:gsub("{(%a+)}", function(key)
         local value = vars[key]
+        if key == "reason" then value = vars.reasons end -- {reason} = {reasons}
         if value == nil then return nil end -- unknown: leave as typed
         if value == "" then empty = true end
         return value
@@ -81,6 +83,51 @@ function ns.ValidateTemplate(tpl)
     return true
 end
 
+-- Turns a plain sentence into a template with automatic optional parts: when a
+-- variable is empty, the words that introduce it are left out with it.
+--   "{name} was reported for {category}, the reason: {reason}. Details: {details}"
+-- If the text already uses [ ] it is used as written.
+function ns.CompileMessage(text)
+    if text:find("[%[%]]") then return text end
+    local vars = {}
+    local pos = 1
+    while true do
+        local s, e, key = text:find("{(%a+)}", pos)
+        if not s then break end
+        vars[#vars + 1] = { s = s, e = e, key = key }
+        pos = e + 1
+    end
+
+    local out, last = {}, 1 -- last = first character not yet copied
+    for i, v in ipairs(vars) do
+        if v.key ~= "name" then
+            local prevEnd = i > 1 and vars[i - 1].e or 0
+            local bstart
+            -- nearest delimiter between the previous variable and this one
+            for p = v.s - 1, prevEnd + 1, -1 do
+                local c = text:sub(p, p)
+                if c == "," or c == ";" then bstart = p; break end
+                if c == "." or c == "!" or c == "?" then bstart = p + 1; break end
+            end
+            if not bstart then
+                bstart = prevEnd + 1
+                if i > 1 and vars[i - 1].key == "name" then
+                    -- same clause as the name: only the word(s) right before it belong to it
+                    local between = text:sub(prevEnd + 1, v.s - 1):gsub("%s+$", "")
+                    local sp = between:match("^.*()%s%S+$")
+                    if sp then bstart = prevEnd + sp end
+                end
+            end
+            if bstart < last then bstart = last end
+            out[#out + 1] = text:sub(last, bstart - 1)
+            out[#out + 1] = "[" .. text:sub(bstart, v.e) .. "]"
+            last = v.e + 1
+        end
+    end
+    out[#out + 1] = text:sub(last)
+    return table.concat(out)
+end
+
 ---------------------------------------------------------------------------
 -- Saved data
 ---------------------------------------------------------------------------
@@ -92,7 +139,13 @@ local function InitDB()
     db.imports = db.imports or {} -- lists shared by other people, kept apart from db.history
     if db.tooltip == nil then db.tooltip = true end
     if db.callout == nil then db.callout = false end -- opt-in
-    if not ns.ValidateTemplate(db.template) then db.template = ns.DEFAULT_TEMPLATE end
+    if not db.message then -- keep a message customised in an earlier version
+        local old = db.template
+        db.message = (old and old ~= ns.DEFAULT_TEMPLATE and ns.ValidateTemplate(old)) and old or ns.DEFAULT_MESSAGE
+    end
+    if not ns.ValidateTemplate(db.message) then db.message = ns.DEFAULT_MESSAGE end
+    db.template = ns.CompileMessage(db.message)
+    db.simple, db.advanced = nil, nil -- from an unreleased editor draft
     db.minimap = db.minimap or { angle = 215 }
     db.announce = db.announce or { say = true, party = true, raid = true }
     if db.disabled then -- migrate the old single on/off switch
@@ -102,6 +155,12 @@ local function InitDB()
     return db
 end
 ns.InitDB = InitDB
+
+function ns.SetMessage(text)
+    local db = InitDB()
+    db.message = text
+    db.template = ns.CompileMessage(text)
+end
 
 -- Is announcing allowed in this chat channel? (instance chat follows "party")
 local function ChannelAllowed(channel)
