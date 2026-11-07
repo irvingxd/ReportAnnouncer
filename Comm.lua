@@ -14,7 +14,10 @@ local MAX_FRIENDS = 60
 local Register = (C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix) or RegisterAddonMessagePrefix
 local SendMsg = (C_ChatInfo and C_ChatInfo.SendAddonMessage) or SendAddonMessage
 
-local lastSent, lastFriends = 0, 0
+local lastSent, lastFriends, lastGroup = 0, 0, 0
+local GROUP_GAP = 5 -- group changes can send again quickly
+
+local answered = {} -- when we last replied to each id
 
 local function Enabled() return ns.InitDB().shareCount end
 
@@ -33,13 +36,47 @@ local function Message(kind)
     return kind .. "1:" .. OwnCount() .. ":" .. OwnId()
 end
 
+-- the count, plus how often each category / reason / zone was reported (no names).
+-- one short message each, the top ones only (messages are limited to 255 bytes)
+local KINDS = { "c", "r", "z" }
+local function Messages(kind)
+    local msgs = { Message(kind) }
+    local counts = { ns.OwnCounts() }
+    for i, k in ipairs(KINDS) do
+        local parts, len = {}, 0
+        for _, item in ipairs(ns.SortedTop(counts[i], 12)) do
+            local name = (item.label:gsub("[;=:|%c]", "")):sub(1, 40)
+            local piece = name .. "=" .. item.n
+            if name ~= "" then
+                if len + #piece + 1 > 200 then break end
+                parts[#parts + 1] = piece
+                len = len + #piece + 1
+            end
+        end
+        if #parts > 0 then
+            msgs[#msgs + 1] = "S1:" .. OwnId() .. ":" .. k .. ":" .. table.concat(parts, ";")
+        end
+    end
+    return msgs
+end
+
+-- text can be one message or a list of them
 local function Send(text, channel, target)
     if not SendMsg then return end
-    pcall(SendMsg, PREFIX, text, channel, target)
+    if type(text) == "table" then
+        for _, t in ipairs(text) do pcall(SendMsg, PREFIX, t, channel, target) end
+    else
+        pcall(SendMsg, PREFIX, text, channel, target)
+    end
 end
 
 local function SendBN(text, gameAccountID)
-    if BNSendGameData and gameAccountID then pcall(BNSendGameData, gameAccountID, PREFIX, text) end
+    if not (BNSendGameData and gameAccountID) then return end
+    if type(text) == "table" then
+        for _, t in ipairs(text) do pcall(BNSendGameData, gameAccountID, PREFIX, t) end
+    else
+        pcall(BNSendGameData, gameAccountID, PREFIX, text)
+    end
 end
 
 local function EachFriend(fnWoW, fnBN)
@@ -60,13 +97,27 @@ local function EachFriend(fnWoW, fnBN)
     end
 end
 
+-- someone joined or left: say hello to the group again (short wait, not 60s)
+local function BroadcastGroup()
+    if not Enabled() or not SendMsg then return end
+    local now = time()
+    if now - lastGroup < GROUP_GAP then return end
+    lastGroup = now
+    local msg = Messages("H")
+    if IsInRaid and IsInRaid() then
+        Send(msg, "RAID")
+    elseif IsInGroup and IsInGroup() then
+        Send(msg, (IsInGroup(LE_PARTY_CATEGORY_INSTANCE or 2) and "INSTANCE_CHAT") or "PARTY")
+    end
+end
+
 -- tell guild, group, channel and friends we're here
 function ns.BroadcastCount(force)
     if not Enabled() or not SendMsg then return end
     local now = time()
     if not force and now - lastSent < SEND_GAP then return end
     lastSent = now
-    local msg = Message("H")
+    local msg = Messages("H")
 
     if IsInGuild and IsInGuild() then Send(msg, "GUILD") end
     if IsInRaid and IsInRaid() then
@@ -96,9 +147,31 @@ local function Prune(peers)
     return n
 end
 
+-- how often a peer reported each category / reason / zone
+local function OnStats(id, kind, body)
+    if #id > 16 or id == OwnId() then return end
+    local peer = ns.InitDB().peers[id]
+    if not peer then return end -- their hello comes first
+    local t, n = {}, 0
+    for item in body:gmatch("[^;]+") do
+        local name, v = item:match("^([^=]+)=(%d+)$")
+        v = tonumber(v)
+        if name and v and v <= MAX_COUNT and #name <= 40 and n < 12 then
+            t[(name:gsub("%c", ""):gsub("|", "||"))] = v
+            n = n + 1
+        end
+    end
+    peer.s = peer.s or {}
+    peer.s[kind] = t
+    peer.t = time()
+    if ns.RefreshHistory then ns.RefreshHistory() end
+end
+
 -- reply goes back the same way the message came
 local function OnMessage(text, reply)
     if not Enabled() then return end
+    local sid, skind, sbody = text:match("^S1:(%x+):([crz]):(.+)$")
+    if sid then OnStats(sid, skind, sbody) return end
     local kind, count, id = text:match("^([HR])1:(%d+):(%x+)$")
     count = tonumber(count)
     if not kind or not count or count > MAX_COUNT or #id > 16 then return end
@@ -107,10 +180,14 @@ local function OnMessage(text, reply)
     local peers = ns.InitDB().peers
     if not peers[id] and Prune(peers) >= MAX_PEERS then return end
     local isNew = peers[id] == nil
-    peers[id] = { n = count, t = time() }
+    peers[id] = { n = count, t = time(), s = peers[id] and peers[id].s }
 
-    -- answer a new hello once (replies never get answered, no loops)
-    if kind == "H" and isNew and reply then reply(Message("R")) end
+    -- answer a hello we haven't answered lately (replies never get answered, no loops)
+    local now = time()
+    if kind == "H" and reply and (isNew or now - (answered[id] or 0) > 30) then
+        answered[id] = now
+        reply(Messages("R"))
+    end
     if ns.RefreshHistory then ns.RefreshHistory() end
 end
 
@@ -124,6 +201,21 @@ function ns.CommunityTally()
         total = total + p.n
     end
     return users, total
+end
+
+-- total reports the others have and what they were for: n, categories, reasons, zones
+function ns.CommunityData()
+    local peers = ns.InitDB().peers
+    Prune(peers)
+    local n, c, r, z = 0, {}, {}, {}
+    local function Add(into, from)
+        for k, v in pairs(from or {}) do into[k] = (into[k] or 0) + v end
+    end
+    for _, p in pairs(peers) do
+        n = n + p.n
+        if p.s then Add(c, p.s.c); Add(r, p.s.r); Add(z, p.s.z) end
+    end
+    return n, c, r, z
 end
 
 -- /reportannouncer channel <name>   (empty clears it)
@@ -158,6 +250,9 @@ f:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
         if a1 == PREFIX and a4 then
             OnMessage(a2 or "", function(t) SendBN(t, a4) end)
         end
+    elseif event == "GROUP_ROSTER_UPDATE" then
+        -- wait a moment, the new member needs to be in the group first
+        if C_Timer then C_Timer.After(2, BroadcastGroup) else BroadcastGroup() end
     else
         ns.BroadcastCount(false)
     end
