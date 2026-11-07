@@ -6,7 +6,7 @@
 - **Imported Lists** are kept separate from your own list and are never used for tooltips or group callouts.
 - **Statistics** tab: what people get reported for (categories, reasons), where, and repeat offenders; optionally including imported lists.
 - The window now has side tabs: Personal List, Imported Lists, Statistics, Options. All settings (chat switches, tooltips, callout, message) moved into the Options tab; the Game Menu entry just opens it.
-- Custom message: variables `{name}` (required), `{category}`, `{reasons}`, `{details}`, `{zone}`, `{date}`, optional `[ ... ]` parts, live preview and reset.
+- Custom message: edit the wording and tick what to include (category, reasons, details, zone, date); an Advanced mode offers a raw template with `{variables}` and `[ optional ]` parts, plus live preview.
 - **Community tally** (opt-in): addon users in your guild, groups, one chat channel (`/reportannouncer channel <name>`) and friends (character + Battle.net) share only their report count, never names; the total is shown in Statistics.
 - New commands: `/reportannouncer stats`, `export`, `import`.
 - **Clear all** moved to the left, **Close** on the right.
