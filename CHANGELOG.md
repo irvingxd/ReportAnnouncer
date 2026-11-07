@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.1
+
+- Shorter share strings (old ones still import)
+- Statistics can include community numbers
+- Faster community count when someone joins your group
+
 ## 2.0.0
 
 New:
