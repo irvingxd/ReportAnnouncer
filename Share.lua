@@ -1,7 +1,8 @@
 -- share your list as a text string and import lists from others.
 -- imported lists stay apart from yours, never used in tooltips or callouts.
 --
--- format: RA1:<base64 payload>:<checksum>
+-- format: RA2:<base64 of compressed payload>:<checksum>
+-- (old RA1 strings, plain base64, can still be imported)
 -- this is encoding, not encryption. it only catches broken or edited strings.
 local ADDON, ns = ...
 
@@ -57,6 +58,102 @@ local function Checksum(s) -- Adler-32
     return string.format("%04x%04x", b, a)
 end
 
+-- short checksum for RA2
+local function Checksum2(s)
+    local a, b = 1, 0
+    for i = 1, #s do
+        a = (a + s:byte(i)) % 65521
+        b = (b + a) % 65521
+    end
+    return string.format("%04x", (b * 31 + a) % 65521)
+end
+
+---------------------------------------------------------------------------
+-- small compressor (LZ77 style, no library needed)
+-- byte < 128: copy the next (byte+1) bytes. byte >= 128: repeat (byte-124)
+-- bytes from 'offset' back, offset is the next 2 bytes.
+---------------------------------------------------------------------------
+local MAX_UNPACKED = 1000000
+
+local function Compress(s)
+    local out, lit, last = {}, {}, {}
+    local function Flush()
+        local i = 1
+        while i <= #lit do
+            local n = math.min(128, #lit - i + 1)
+            out[#out + 1] = string.char(n - 1) .. table.concat(lit, "", i, i + n - 1)
+            i = i + n
+        end
+        lit = {}
+    end
+    local n, i = #s, 1
+    while i <= n do
+        local best, off = 0, 0
+        if i + 3 <= n then
+            local p = last[s:sub(i, i + 3)]
+            if p and i - p <= 65535 then
+                local l = 4
+                while l < 128 and i + l <= n and s:byte(p + l) == s:byte(i + l) do l = l + 1 end
+                best, off = l, i - p
+            end
+        end
+        if best >= 4 then
+            Flush()
+            out[#out + 1] = string.char(124 + best, math.floor(off / 256), off % 256)
+            for j = i, i + best - 1 do
+                if j + 3 <= n then last[s:sub(j, j + 3)] = j end
+            end
+            i = i + best
+        else
+            lit[#lit + 1] = s:sub(i, i)
+            if i + 3 <= n then last[s:sub(i, i + 3)] = i end
+            i = i + 1
+        end
+    end
+    Flush()
+    return table.concat(out)
+end
+
+local function Decompress(s)
+    local out, count, i, n = {}, 0, 1, #s
+    while i <= n do
+        local c = s:byte(i)
+        if c < 128 then
+            if i + c + 1 > n then return nil end
+            for k = 1, c + 1 do
+                count = count + 1
+                out[count] = s:sub(i + k, i + k)
+            end
+            i = i + c + 2
+        else
+            if i + 2 > n then return nil end
+            local off = s:byte(i + 1) * 256 + s:byte(i + 2)
+            if off == 0 or off > count then return nil end
+            for _ = 1, c - 124 do
+                count = count + 1
+                out[count] = out[count - off]
+            end
+            i = i + 3
+        end
+        if count > MAX_UNPACKED then return nil end
+    end
+    return table.concat(out)
+end
+
+-- numbers as base 36, shorter than decimal
+local DIGITS = "0123456789abcdefghijklmnopqrstuvwxyz"
+local function ToB36(n)
+    n = math.max(0, math.floor(n))
+    if n == 0 then return "0" end
+    local t = {}
+    while n > 0 do
+        local d = n % 36
+        t[#t + 1] = DIGITS:sub(d + 1, d + 1)
+        n = math.floor(n / 36)
+    end
+    return string.reverse(table.concat(t))
+end
+
 ---------------------------------------------------------------------------
 -- helpers
 ---------------------------------------------------------------------------
@@ -94,15 +191,40 @@ end
 function ns.ExportPersonal(includeDetails)
     local db = ns.InitDB()
     local player = UnitName and UnitName("player") or "?"
-    local records = { table.concat({ "RA", "1", CleanOut(player), tostring(time()) }, FS) }
+    local now = time()
+
+    -- category, reasons and zone repeat a lot: store each text once, point to it
+    local words, wordIndex = {}, {}
+    local function Word(v)
+        v = CleanOut(v)
+        if v == "" then return "" end
+        local idx = wordIndex[v]
+        if not idx then
+            words[#words + 1] = v
+            idx = #words
+            wordIndex[v] = idx
+        end
+        return ToB36(idx)
+    end
+
+    local entries = {}
     for _, e in ipairs(db.history) do
-        records[#records + 1] = table.concat({
-            CleanOut(e.name), CleanOut(e.guid), CleanOut(e.category), CleanOut(e.reasons),
-            CleanOut(e.zone), tostring(e.t or 0), includeDetails and CleanOut(e.comment) or "",
+        local guid = CleanOut(e.guid):match("^Player%-(.+)$") or ""
+        entries[#entries + 1] = table.concat({
+            CleanOut(e.name), guid, Word(e.category), Word(e.reasons), Word(e.zone),
+            ToB36(now - (e.t or now)), -- how long ago
+            includeDetails and CleanOut(e.comment) or "",
         }, FS)
     end
+
+    local records = {
+        table.concat({ "RA", "2", CleanOut(player), ToB36(now) }, FS),
+        table.concat(words, FS),
+    }
+    for _, r in ipairs(entries) do records[#records + 1] = r end
     local payload = table.concat(records, RS)
-    return "RA1:" .. B64Encode(payload) .. ":" .. Checksum(payload), #db.history
+    local body = B64Encode(Compress(payload)):gsub("=+$", "")
+    return "RA2:" .. body .. ":" .. Checksum2(payload), #db.history
 end
 
 ---------------------------------------------------------------------------
@@ -114,34 +236,58 @@ function ns.ParseShareString(str)
     if str == "" then return nil, "" end
     local ver, body, sum = str:match("^RA(%d+):([A-Za-z0-9+/=]+):(%x+)$")
     if not ver then return nil, "That doesn't look like a Report Announcer string." end
-    if ver ~= "1" then return nil, "This string is from a newer version of the addon." end
+    if ver ~= "1" and ver ~= "2" then return nil, "This string is from a newer version of the addon." end
+    local v2 = ver == "2"
+
+    if v2 then body = body .. string.rep("=", (4 - #body % 4) % 4) end
     local payload = B64Decode(body)
+    if payload and v2 then payload = Decompress(payload) end
     if not payload then return nil, "The string is damaged." end
-    if Checksum(payload) ~= sum then
+    if (v2 and Checksum2(payload) or Checksum(payload)) ~= sum then
         return nil, "The string is damaged or was edited (checksum doesn't match)."
     end
 
     local records = Split(payload, RS)
     local head = Split(records[1] or "", FS)
-    if head[1] ~= "RA" or head[2] ~= "1" then return nil, "The string is damaged." end
+    if head[1] ~= "RA" or head[2] ~= ver then return nil, "The string is damaged." end
     local source = CleanIn(head[3]):sub(1, 40)
     if source == "" then source = "Unknown" end
 
-    local list = { source = source, t = tonumber(head[4]) or 0, entries = {}, skipped = 0 }
-    for i = 2, #records do
+    local now = time()
+    local sent = v2 and tonumber(head[4] or "", 36) or tonumber(head[4]) or 0
+    local list = { source = source, t = sent, entries = {}, skipped = 0 }
+
+    -- RA2: second record is the word list
+    local words, first = {}, 2
+    if v2 then
+        words = Split(records[2] or "", FS)
+        first = 3
+    end
+    local function Word(ref)
+        if ref == "" then return "" end
+        return words[tonumber(ref, 36) or 0] or ""
+    end
+
+    for i = first, #records do
         local f = Split(records[i], FS)
         if #f == 7 and f[1] ~= "" then
             if #list.entries >= MAX_ENTRIES then
                 list.skipped = list.skipped + 1
             else
-                local guid = f[2]
+                local guid, category, reasons, zone, t = f[2], f[3], f[4], f[5]
+                if v2 then
+                    if guid ~= "" then guid = "Player-" .. guid end
+                    category, reasons, zone = Word(category), Word(reasons), Word(zone)
+                    t = sent - (tonumber(f[6], 36) or 0)
+                else
+                    t = tonumber(f[6]) or 0
+                end
                 if not guid:match("^Player%-%d+%-%x+$") then guid = nil end
-                local t = tonumber(f[6]) or 0
-                if t < 0 or t > time() + 86400 then t = 0 end
+                if t < 0 or t > now + 86400 then t = 0 end
                 list.entries[#list.entries + 1] = {
                     name = CleanIn(f[1]), guid = guid,
-                    category = f[3] ~= "" and CleanIn(f[3]) or nil,
-                    reasons = CleanIn(f[4]), zone = CleanIn(f[5]), t = t,
+                    category = category ~= "" and CleanIn(category) or nil,
+                    reasons = CleanIn(reasons), zone = CleanIn(zone), t = t,
                     comment = f[7] ~= "" and CleanIn(f[7]) or nil,
                 }
             end

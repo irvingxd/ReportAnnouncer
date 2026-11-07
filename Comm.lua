@@ -14,7 +14,10 @@ local MAX_FRIENDS = 60
 local Register = (C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix) or RegisterAddonMessagePrefix
 local SendMsg = (C_ChatInfo and C_ChatInfo.SendAddonMessage) or SendAddonMessage
 
-local lastSent, lastFriends = 0, 0
+local lastSent, lastFriends, lastGroup = 0, 0, 0
+local GROUP_GAP = 5 -- group changes can send again quickly
+
+local answered = {} -- when we last replied to each id
 
 local function Enabled() return ns.InitDB().shareCount end
 
@@ -57,6 +60,20 @@ local function EachFriend(fnWoW, fnBN)
             local g = acc and acc.gameAccountInfo
             if g and g.isOnline and g.clientProgram == "WoW" and g.gameAccountID then fnBN(g.gameAccountID) end
         end
+    end
+end
+
+-- someone joined or left: say hello to the group again (short wait, not 60s)
+local function BroadcastGroup()
+    if not Enabled() or not SendMsg then return end
+    local now = time()
+    if now - lastGroup < GROUP_GAP then return end
+    lastGroup = now
+    local msg = Message("H")
+    if IsInRaid and IsInRaid() then
+        Send(msg, "RAID")
+    elseif IsInGroup and IsInGroup() then
+        Send(msg, (IsInGroup(LE_PARTY_CATEGORY_INSTANCE or 2) and "INSTANCE_CHAT") or "PARTY")
     end
 end
 
@@ -109,8 +126,12 @@ local function OnMessage(text, reply)
     local isNew = peers[id] == nil
     peers[id] = { n = count, t = time() }
 
-    -- answer a new hello once (replies never get answered, no loops)
-    if kind == "H" and isNew and reply then reply(Message("R")) end
+    -- answer a hello we haven't answered lately (replies never get answered, no loops)
+    local now = time()
+    if kind == "H" and reply and (isNew or now - (answered[id] or 0) > 30) then
+        answered[id] = now
+        reply(Message("R"))
+    end
     if ns.RefreshHistory then ns.RefreshHistory() end
 end
 
@@ -158,6 +179,9 @@ f:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
         if a1 == PREFIX and a4 then
             OnMessage(a2 or "", function(t) SendBN(t, a4) end)
         end
+    elseif event == "GROUP_ROSTER_UPDATE" then
+        -- wait a moment, the new member needs to be in the group first
+        if C_Timer then C_Timer.After(2, BroadcastGroup) else BroadcastGroup() end
     else
         ns.BroadcastCount(false)
     end
