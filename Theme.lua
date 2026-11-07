@@ -113,6 +113,11 @@ local function SkinButton(b, t)
         for _, r in ipairs({ b:GetRegions() }) do
             if r:GetObjectType() == "Texture" then r:SetAlpha(t.flat and 0 or 1) end
         end
+        local fs = b:GetFontString()
+        if fs then
+            fs:ClearAllPoints()
+            if t.flat then fs:SetPoint("CENTER", b, "CENTER", 2, -1) else fs:SetAllPoints(b) end
+        end
         local s = b.raSkin
         s:SetShown(t.flat)
         if t.flat and s.SetBackdrop then
@@ -134,7 +139,7 @@ local function SkinClose(b, t)
         s.raSkinFrame = true
         b.raSkin = s
         b.raX = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        b.raX:SetPoint("CENTER")
+        b.raX:SetPoint("CENTER", 2, -1)
         b.raX:SetText("X")
         b:HookScript("OnEnter", function(self)
             local c = Cur()
