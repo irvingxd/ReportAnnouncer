@@ -80,12 +80,17 @@ local function ButtonText(b)
     local fs = b:GetFontString()
     if not fs then return end
     local t = Cur()
+    local r, g, bl
     if not b:IsEnabled() then
-        fs:SetTextColor(0.5, 0.5, 0.5)
+        r, g, bl = 0.5, 0.5, 0.5
     elseif t.flat then
-        fs:SetTextColor(Unpack(t.btnText))
+        r, g, bl = Unpack(t.btnText)
     else
-        fs:SetTextColor(1, 0.82, 0)
+        r, g, bl = 1, 0.82, 0
+    end
+    fs:SetTextColor(r, g, bl)
+    if b.raCross then
+        for _, tx in ipairs(b.raCross) do tx:SetColorTexture(r, g, bl, 1) end
     end
 end
 
@@ -116,7 +121,21 @@ local function SkinButton(b, t)
         local fs = b:GetFontString()
         if fs then
             fs:ClearAllPoints()
-            if t.flat then fs:SetPoint("CENTER", b, "CENTER", 2, -1) else fs:SetAllPoints(b) end
+            if t.flat then fs:SetPoint("CENTER", b, "CENTER", 0, 0) else fs:SetAllPoints(b) end
+            -- "X" buttons get a drawn cross, it's exactly centered
+            if b:GetText() == "X" and b.raSkin.CreateTexture then
+                if not b.raCross then
+                    b.raCross = {}
+                    for _, rot in ipairs({ math.pi / 4, -math.pi / 4 }) do
+                        local tx = b.raSkin:CreateTexture(nil, "OVERLAY")
+                        tx:SetSize(12, 2)
+                        tx:SetPoint("CENTER")
+                        if tx.SetRotation then tx:SetRotation(rot) end
+                        b.raCross[#b.raCross + 1] = tx
+                    end
+                end
+                fs:SetAlpha(t.flat and 0 or 1)
+            end
         end
         local s = b.raSkin
         s:SetShown(t.flat)
@@ -162,6 +181,7 @@ local function SkinClose(b, t)
         end
         b.raSkin:SetShown(t.flat)
         b.raX:SetShown(t.flat)
+        b:SetShown(not t.flat) -- the Close button is enough in the flat theme
         if t.flat and b.raSkin.SetBackdrop then
             b.raSkin:SetBackdrop({ bgFile = FLAT, edgeFile = FLAT, edgeSize = 1, insets = { left = 1, right = 1, top = 1, bottom = 1 } })
             b.raSkin:SetBackdropColor(Unpack(t.btnBg))
