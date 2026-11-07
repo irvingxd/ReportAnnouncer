@@ -10,5 +10,6 @@ ReportAnnouncer.lua
 Stats.lua
 Share.lua
 Comm.lua
+Messages.lua
 History.lua
 Options.lua

@@ -1,13 +1,10 @@
--- ReportAnnouncer: opt-in community tally.
--- Addon users in your guild, groups, one chat channel you pick, and your friends
--- (character friends and Battle.net friends playing WoW) exchange ONE number
--- (how many reports they have, never names) over invisible addon messages.
--- The combined total is shown in Statistics. Uses Blizzard's built-in addon
--- messages, so no library is bundled. Counts are self-reported and can't be verified.
+-- opt-in community tally. only a number (how many reports you have, no names) is
+-- sent to addon users in your guild, group, a channel and friends.
+-- counts are self reported, can't be checked.
 local ADDON, ns = ...
 
 local PREFIX = "RepAnn"
-local EXPIRE = 30 * 86400 -- forget peers not seen for 30 days
+local EXPIRE = 30 * 86400 -- drop peers after 30 days
 local MAX_PEERS = 500
 local MAX_COUNT = 100000
 local SEND_GAP = 60 -- seconds between broadcasts
@@ -23,7 +20,7 @@ local function Enabled() return ns.InitDB().shareCount end
 
 local function OwnCount() return #ns.InitDB().history end
 
--- random id for this install, so one person isn't counted twice via guild + friends
+-- random id so one person isn't counted twice
 local function OwnId()
     local db = ns.InitDB()
     if not db.installId then
@@ -63,7 +60,7 @@ local function EachFriend(fnWoW, fnBN)
     end
 end
 
--- Tell guild, group, the chosen channel and friends that we're here.
+-- tell guild, group, channel and friends we're here
 function ns.BroadcastCount(force)
     if not Enabled() or not SendMsg then return end
     local now = time()
@@ -99,7 +96,7 @@ local function Prune(peers)
     return n
 end
 
--- reply(text) answers the sender over the route their message came in on
+-- reply goes back the same way the message came
 local function OnMessage(text, reply)
     if not Enabled() then return end
     local kind, count, id = text:match("^([HR])1:(%d+):(%x+)$")
@@ -112,12 +109,12 @@ local function OnMessage(text, reply)
     local isNew = peers[id] == nil
     peers[id] = { n = count, t = time() }
 
-    -- answer a hello from someone new once (replies are never answered: no loops)
+    -- answer a new hello once (replies never get answered, no loops)
     if kind == "H" and isNew and reply then reply(Message("R")) end
     if ns.RefreshHistory then ns.RefreshHistory() end
 end
 
--- Returns users seen, total reports (including your own).
+-- returns users seen and total reports (yours included)
 function ns.CommunityTally()
     local peers = ns.InitDB().peers
     Prune(peers)

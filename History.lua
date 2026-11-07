@@ -1,12 +1,11 @@
--- ReportAnnouncer: main window (Personal List / Imported Lists / Statistics / Options)
--- and the minimap button
+-- main window with the side tabs, and the minimap button
 local ADDON, ns = ...
 
 local FRAME_W, FRAME_H = 660, 500
 local CONTENT_X = 156
 local LIST_W = FRAME_W - CONTENT_X - 22 - 24
 local ROW_H = 48
-local RIGHT_W = 64 -- space reserved for the delete button on each row
+local RIGHT_W = 64 -- room for the delete button
 
 local TABS = {
     { key = "personal", label = "Personal List", icon = "Interface\\Icons\\INV_Misc_Note_01" },
@@ -21,7 +20,7 @@ local win
 local atan2 = math.atan2 or function(y, x) return math.atan(y, x) end
 
 ---------------------------------------------------------------------------
--- List pages (personal + imported share the same row code)
+-- list pages (personal and imported use the same rows)
 ---------------------------------------------------------------------------
 local function RemoveEntry(entry)
     local hist = ns.InitDB().history
@@ -87,7 +86,7 @@ local function GetRow(page, i)
     end)
     r.del:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-    -- hover: full details (the lines are truncated)
+    -- hover shows everything (lines are cut short)
     r:SetScript("OnEnter", function(self)
         local item = self.item
         if not item or item.kind ~= "entry" then return end
@@ -393,21 +392,14 @@ local function CreateWindow()
         BackdropTemplateMixin and "BackdropTemplate" or nil)
     f:SetSize(FRAME_W, FRAME_H)
     f:SetPoint("CENTER")
-    f:SetFrameStrata("HIGH") -- below the DIALOG strata used by confirmation popups
+    f:SetFrameStrata("HIGH") -- below the popups
     f:SetMovable(true)
     f:EnableMouse(true)
     f:SetClampedToScreen(true)
     f:RegisterForDrag("LeftButton")
     f:SetScript("OnDragStart", f.StartMoving)
     f:SetScript("OnDragStop", f.StopMovingOrSizing)
-    if f.SetBackdrop then
-        f:SetBackdrop({
-            bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
-            edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-            tile = true, tileSize = 32, edgeSize = 32,
-            insets = { left = 11, right = 12, top = 12, bottom = 11 },
-        })
-    end
+    ns.DialogBackdrop(f)
     f.tab = "personal"
 
     local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
@@ -475,12 +467,12 @@ local function CreateWindow()
     f.count:SetPoint("RIGHT", closeBtn, "LEFT", -12, 0)
 
     f:SetScript("OnShow", ns.RefreshHistory)
-    tinsert(UISpecialFrames, "ReportAnnouncerHistoryFrame") -- Esc closes it
+    tinsert(UISpecialFrames, "ReportAnnouncerHistoryFrame") -- esc closes it
     f:Hide()
     return f
 end
 
--- Open the window (on a given tab). Not allowed during combat.
+-- open the window on a tab, not in combat
 function ns.ShowTab(key)
     if InCombatLockdown() then
         ns.Print("the window can't be opened during combat.")
@@ -499,7 +491,7 @@ function ns.ToggleHistory()
     ns.ShowTab()
 end
 
--- Hide the window (and its confirmation popup) as soon as combat starts.
+-- hide it when combat starts
 local combatFrame = CreateFrame("Frame")
 combatFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 combatFrame:SetScript("OnEvent", function()
@@ -546,11 +538,11 @@ function ns.CreateMinimapButton()
     button:SetFrameLevel(8)
     button:RegisterForClicks("LeftButtonUp")
     button:RegisterForDrag("LeftButton")
-    button:SetHighlightTexture(136477) -- minimap button highlight
+    button:SetHighlightTexture(136477)
 
     local overlay = button:CreateTexture(nil, "OVERLAY")
     overlay:SetSize(53, 53)
-    overlay:SetTexture(136430) -- minimap button border
+    overlay:SetTexture(136430)
     overlay:SetPoint("TOPLEFT")
 
     local background = button:CreateTexture(nil, "BACKGROUND")

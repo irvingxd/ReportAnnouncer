@@ -1,13 +1,11 @@
--- ReportAnnouncer: share your report list as an encoded string, and import lists
--- other people shared. Imported lists are kept apart from your own history and never
--- appear in tooltips or group callouts.
+-- share your list as a text string and import lists from others.
+-- imported lists stay apart from yours, never used in tooltips or callouts.
 --
--- String format:  RA1:<base64 payload>:<checksum>
--- This is encoding, not encryption: it keeps a pasted string from being read by
--- accident and rejects damaged or edited copies, but it does not hide the contents.
+-- format: RA1:<base64 payload>:<checksum>
+-- this is encoding, not encryption. it only catches broken or edited strings.
 local ADDON, ns = ...
 
-local RS, FS = "\30", "\31" -- record / field separators (stripped from all text)
+local RS, FS = "\30", "\31" -- record / field separators
 local MAX_ENTRIES = 500
 local MAX_LISTS = 20
 local MAX_FIELD = 200
@@ -75,13 +73,13 @@ local function Split(s, sep)
     end
 end
 
--- text going out: drop control characters
+-- outgoing text: drop control characters
 local function CleanOut(v)
     return (tostring(v or ""):gsub("%c", ""))
 end
 
--- text coming in: untrusted, so drop control characters, cap the length and
--- neutralise |c / |H / |T escape sequences by doubling the pipes
+-- incoming text is untrusted: drop control characters, cap length,
+-- double the pipes so |c |H |T codes do nothing
 local function CleanIn(v)
     v = tostring(v or ""):gsub("%c", "")
     if #v > MAX_FIELD then v = v:sub(1, MAX_FIELD) end
@@ -92,7 +90,7 @@ end
 ---------------------------------------------------------------------------
 -- Export
 ---------------------------------------------------------------------------
--- Returns the share string and how many reports it holds.
+-- returns the string and how many reports are in it
 function ns.ExportPersonal(includeDetails)
     local db = ns.InitDB()
     local player = UnitName and UnitName("player") or "?"
@@ -110,7 +108,7 @@ end
 ---------------------------------------------------------------------------
 -- Import
 ---------------------------------------------------------------------------
--- Returns { source, t, entries = {...}, skipped } or nil + an error message.
+-- returns { source, t, entries, skipped } or nil + error
 function ns.ParseShareString(str)
     str = (str or ""):gsub("%s+", "")
     if str == "" then return nil, "" end
@@ -152,8 +150,8 @@ function ns.ParseShareString(str)
     return list
 end
 
--- Stores a parsed list. Importing again from the same sender replaces their list.
--- Returns true + "added"/"updated", or false + a message.
+-- same sender importing again replaces their old list
+-- returns true + "added"/"updated", or false + message
 function ns.ImportList(list)
     local imports = ns.InitDB().imports
     for i, existing in ipairs(imports) do
@@ -180,7 +178,7 @@ function ns.DeleteImportedList(list)
 end
 
 ---------------------------------------------------------------------------
--- Export / import dialogs
+-- dialogs
 ---------------------------------------------------------------------------
 local dialog
 
@@ -195,14 +193,7 @@ local function CreateDialog()
     d:RegisterForDrag("LeftButton")
     d:SetScript("OnDragStart", d.StartMoving)
     d:SetScript("OnDragStop", d.StopMovingOrSizing)
-    if d.SetBackdrop then
-        d:SetBackdrop({
-            bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
-            edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-            tile = true, tileSize = 32, edgeSize = 32,
-            insets = { left = 11, right = 12, top = 12, bottom = 11 },
-        })
-    end
+    ns.DialogBackdrop(d)
 
     d.title = d:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     d.title:SetPoint("TOP", 0, -18)
@@ -275,7 +266,7 @@ function ns.ShowExport()
         d.status:SetTextColor(1, 1, 1)
         d.status:SetText(count == 0 and "Your list is empty, there is nothing to share yet."
             or (count .. " report" .. (count == 1 and "" or "s") .. " in this string."))
-        -- keep the string intact: undo any edit
+        -- keep the string as is
         d.edit:SetScript("OnTextChanged", function(self, user)
             if user then self:SetText(str); self:HighlightText() end
         end)

@@ -1,4 +1,4 @@
--- ReportAnnouncer: statistics over your report history (and optionally imported lists)
+-- stats over your reports (imported lists optional)
 local ADDON, ns = ...
 
 local function SortedTop(counts, limit)
@@ -25,7 +25,7 @@ local function Tally(entries, categories, reasons, zones, perPlayer, labels)
             end
         end
         if e.zone and e.zone ~= "" then
-            Bump(zones, strtrim(e.zone:match("([^,]+)$") or e.zone)) -- main zone, not the sub-zone
+            Bump(zones, strtrim(e.zone:match("([^,]+)$") or e.zone))
         end
         local key = e.guid or strlower(e.name or "?")
         perPlayer[key] = (perPlayer[key] or 0) + 1

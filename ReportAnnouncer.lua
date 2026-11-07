@@ -1,17 +1,7 @@
--- ReportAnnouncer 1.5
--- When you press "Report" in Blizzard's report dialog:
---   * announces in chat: <name> was reported for <category>, the reason: <reasons>. Details: <text>
---     (RAID if you're in a raid, PARTY if in a party, otherwise SAY)
---   * saves it to a history (name, reasons, details, zone, date) shown by the minimap button
---   * shows a "Reported by you" summary in that player's mouseover tooltip (can be turned off)
--- Sent on the button's PreClick so the click's "hardware event" is still valid
--- (Blizzard blocks addon /say otherwise).
---
--- Commands: /reportannouncer            toggle chat announcing on/off
---           /reportannouncer history     open the history window
---           /reportannouncer minimap     show/hide the minimap button
---           /reportannouncer test        send a sample message
---           /reportannouncer options     open the options (message template)
+-- when you press Report in Blizzard's report dialog this announces it in chat,
+-- saves it to your history and shows it in the player's tooltip.
+-- sent on the button's PreClick so the click still counts (otherwise /say is blocked).
+-- commands are in the README and the slash handler at the bottom.
 
 local ADDON, ns = ...
 local MAX_LEN = 250
@@ -22,10 +12,19 @@ local function Print(msg)
 end
 ns.Print = Print
 
+function ns.DialogBackdrop(frame)
+    if not frame.SetBackdrop then return end
+    frame:SetBackdrop({
+        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+        tile = true, tileSize = 32, edgeSize = 32,
+        insets = { left = 11, right = 12, top = 12, bottom = 11 },
+    })
+end
+
 ---------------------------------------------------------------------------
--- Message template
---   {name} {category} {reasons} {details} {zone} {date}
---   [ ... ]  optional block: left out when a variable inside it is empty
+-- message variables: {name} {category} {reasons} {details} {zone} {date}
+-- [ ... ] is left out when a variable inside it is empty
 ---------------------------------------------------------------------------
 ns.DEFAULT_TEMPLATE = "{name} was reported[ for {category}][, the reason: {reasons}].[ Details: {details}]"
 ns.DEFAULT_MESSAGE = "{name} was reported for {category}, the reason: {reason}. Details: {details}"
@@ -36,13 +35,13 @@ ns.DEFAULT_CALLOUTS = {
 ns.TEMPLATE_VARS = { name = true, category = true, reason = true, reasons = true, details = true, zone = true, date = true }
 local MAX_TEMPLATE = 220
 
--- Replace {vars} in text. Second result is true if a variable in it was empty.
+-- fills in {vars}. second result is true if one was empty
 local function Fill(text, vars)
     local empty = false
     local out = text:gsub("{(%a+)}", function(key)
         local value = vars[key]
-        if key == "reason" then value = vars.reasons end -- {reason} = {reasons}
-        if value == nil then return nil end -- unknown: leave as typed
+        if key == "reason" then value = vars.reasons end
+        if value == nil then return nil end
         if value == "" then empty = true end
         return value
     end)
@@ -72,7 +71,7 @@ function ns.SAMPLE_VARS()
     }
 end
 
--- true, or false + the reason it can't be used
+-- true, or false + why not
 function ns.ValidateTemplate(tpl)
     if type(tpl) ~= "string" or strtrim(tpl) == "" then return false, "The message can't be empty." end
     if #tpl > MAX_TEMPLATE then return false, "Too long (max " .. MAX_TEMPLATE .. " characters)." end
@@ -87,10 +86,8 @@ function ns.ValidateTemplate(tpl)
     return true
 end
 
--- Turns a plain sentence into a template with automatic optional parts: when a
--- variable is empty, the words that introduce it are left out with it.
---   "{name} was reported for {category}, the reason: {reason}. Details: {details}"
--- If the text already uses [ ] it is used as written.
+-- turns a plain sentence into a template. if a variable is empty, the words
+-- before it go too. if the text already has [ ] it's used as is.
 function ns.CompileMessage(text)
     if text:find("[%[%]]") then return text end
     local vars = {}
@@ -102,12 +99,11 @@ function ns.CompileMessage(text)
         pos = e + 1
     end
 
-    local out, last = {}, 1 -- last = first character not yet copied
+    local out, last = {}, 1
     for i, v in ipairs(vars) do
         if v.key ~= "name" then
             local prevEnd = i > 1 and vars[i - 1].e or 0
             local bstart
-            -- nearest delimiter between the previous variable and this one
             for p = v.s - 1, prevEnd + 1, -1 do
                 local c = text:sub(p, p)
                 if c == "," or c == ";" then bstart = p; break end
@@ -116,7 +112,6 @@ function ns.CompileMessage(text)
             if not bstart then
                 bstart = prevEnd + 1
                 if i > 1 and vars[i - 1].key == "name" then
-                    -- same clause as the name: only the word(s) right before it belong to it
                     local between = text:sub(prevEnd + 1, v.s - 1):gsub("%s+$", "")
                     local sp = between:match("^.*()%s%S+$")
                     if sp then bstart = prevEnd + sp end
@@ -133,17 +128,17 @@ function ns.CompileMessage(text)
 end
 
 ---------------------------------------------------------------------------
--- Saved data
+-- saved data
 ---------------------------------------------------------------------------
 local function InitDB()
     ReportAnnouncerDB = ReportAnnouncerDB or {}
     local db = ReportAnnouncerDB
     db.history = db.history or {}
-    db.peers = db.peers or {} -- community tally: other addon users' report counts
-    db.imports = db.imports or {} -- lists shared by other people, kept apart from db.history
+    db.peers = db.peers or {}
+    db.imports = db.imports or {} -- lists from other people
     if db.tooltip == nil then db.tooltip = true end
-    if db.callout == nil then db.callout = false end -- opt-in
-    if not db.messages then -- keep a message customised in an earlier version
+    if db.callout == nil then db.callout = false end
+    if not db.messages then -- keep an old custom message
         local old = db.message or db.template
         if old and old ~= ns.DEFAULT_TEMPLATE and ns.ValidateTemplate(old) then
             db.messages = { old }
@@ -151,10 +146,10 @@ local function InitDB()
     end
     db.messages = db.messages or { ns.DEFAULT_MESSAGE }
     db.calloutMessages = db.calloutMessages or { ns.DEFAULT_CALLOUTS[1], ns.DEFAULT_CALLOUTS[2] }
-    db.message, db.template, db.simple, db.advanced = nil, nil, nil, nil -- older formats
+    db.message, db.template, db.simple, db.advanced = nil, nil, nil, nil
     db.minimap = db.minimap or { angle = 215 }
     db.announce = db.announce or { say = true, party = true, raid = true }
-    if db.disabled then -- migrate the old single on/off switch
+    if db.disabled then -- old on/off switch
         db.announce.say, db.announce.party, db.announce.raid = false, false, false
         db.disabled = nil
     end
@@ -162,8 +157,7 @@ local function InitDB()
 end
 ns.InitDB = InitDB
 
--- Pick one of the saved messages at random ("report" = when you report someone,
--- "callout" = when a reported player is in your group) and fill in the variables.
+-- picks a random saved message ("report" or "callout") and fills it in
 function ns.RenderMessage(kind, vars)
     local db = InitDB()
     local list = (kind == "callout") and db.calloutMessages or db.messages
@@ -177,7 +171,7 @@ function ns.RenderMessage(kind, vars)
     return ns.RenderTemplate(ns.CompileMessage(valid[math.random(#valid)]), vars)
 end
 
--- Is announcing allowed in this chat channel? (instance chat follows "party")
+-- is announcing on in this channel? (instance chat follows party)
 local function ChannelAllowed(channel)
     local a = InitDB().announce
     if channel == "RAID" then return a.raid end
@@ -193,8 +187,8 @@ local function IsSecret(v)
     return issecretvalue and issecretvalue(v)
 end
 
--- Names can differ between the report dialog ("Pepe Peepo") and unit APIs ("Pepe"),
--- so: ignore the realm, and let a name match another that starts with it + a space.
+-- the report dialog and unit APIs can give different names ("Pepe Peepo" / "Pepe"),
+-- so ignore the realm and let a name match one that starts with it + a space
 local function NamesMatch(a, b)
     a, b = ShortName(a), ShortName(b)
     if not a or not b or a == "" or b == "" then return false end
@@ -221,22 +215,22 @@ function ns.DateText(e)
     return date("%Y-%m-%d %H:%M", e.t or 0)
 end
 
--- All history entries for one player (match by GUID when both have one, else by name).
+-- all entries for one player (GUID if both have one, else name)
 function ns.FindReports(guid, name)
     local found = {}
     for _, e in ipairs(InitDB().history) do
         local match
         if guid and e.guid then
-            match = (e.guid == guid) -- both have an ID: only the ID counts, never the name
+            match = (e.guid == guid) -- both have an ID: only the ID counts
         else
-            match = NamesMatch(name, e.name) -- old entry without an ID: best-effort name match
+            match = NamesMatch(name, e.name) -- old entry, no ID: match by name
         end
         if match then found[#found + 1] = e end
     end
     return found
 end
 
--- Finds a player's GUID by name among the units we can currently see.
+-- finds a GUID by name among units we can see
 function ns.FindGuidByName(name)
     local units = { "target", "mouseover", "focus", "targettarget", "focustarget" }
     for i = 1, 4 do units[#units + 1] = "party" .. i end
@@ -253,7 +247,7 @@ function ns.FindGuidByName(name)
     end
 end
 
--- Saves a newly learned GUID on name-matched entries that had none.
+-- saves a new GUID on entries that had none
 function ns.LearnGuid(entries, guid)
     for _, e in ipairs(entries) do
         if not e.guid then e.guid = guid end
@@ -290,7 +284,7 @@ local function PickChannel()
     return "SAY"
 end
 
--- Is this player (GUID if known, else name) one of the people in my party/raid?
+-- is this player in my party/raid?
 local function IsInMyGroup(guid, name)
     local units = {}
     if IsInRaid and IsInRaid() then
@@ -323,7 +317,7 @@ local function Send(text, channel)
 end
 
 ---------------------------------------------------------------------------
--- Reading Blizzard's report dialog
+-- reading the report dialog
 ---------------------------------------------------------------------------
 local function MajorName(major)
     if not major or not (C_ReportSystem and C_ReportSystem.GetMajorCategoryString) then return nil end
@@ -369,13 +363,13 @@ local function Announce()
     local category = MajorName(f.selectedMajorType)
     local reasons = MinorNames(flags)
 
-    -- save to history (always, even if chat announcing is switched off)
+    -- always saved, even with chat off
     local okGuid, guid = pcall(function()
         local loc = f.reportPlayerLocation
         return loc and loc.GetGUID and loc:GetGUID() or nil
     end)
     if not okGuid then guid = nil end
-    if not guid then -- the dialog gave no ID: look for the player among units we can see
+    if not guid then -- no ID from the dialog, look for the player
         local okFind, found = pcall(ns.FindGuidByName, name)
         if okFind then guid = found end
     end
@@ -388,7 +382,7 @@ local function Announce()
         comment = (comment and comment ~= "") and comment or nil,
     })
 
-    -- Group chat is only for reports of someone in the group; anyone else goes to /say
+    -- group chat only for people in the group, everyone else goes to /say
     local channel = PickChannel()
     if channel ~= "SAY" then
         local okIn, inGroup = pcall(IsInMyGroup, okGuid and guid or nil, name)
@@ -424,7 +418,7 @@ local function TryHook()
 end
 
 ---------------------------------------------------------------------------
--- Mouseover tooltip
+-- tooltip
 ---------------------------------------------------------------------------
 local function AddReportLines(tt, guid, name)
     if not InitDB().tooltip then return end
@@ -443,7 +437,7 @@ local function AddReportLines(tt, guid, name)
     if #shown > 3 then
         tt:AddLine("|cff999999+" .. (#shown - 3) .. " older (see history)|r")
     end
-    tt:Show() -- resize to fit the new lines
+    tt:Show()
 end
 
 local function OnUnitTooltip(tt, dataGuid)
@@ -472,9 +466,9 @@ local function HookTooltips()
 end
 
 ---------------------------------------------------------------------------
--- Call out reported players who are in your group (opt-in)
+-- call out reported players in your group (opt-in)
 ---------------------------------------------------------------------------
-local calledOut = {}      -- GUIDs already announced during this group
+local calledOut = {}      -- already announced this group
 local checkPending = false
 
 local function BuildCallout(name, e, channel)
@@ -530,7 +524,7 @@ local function CheckGroup(verbose)
                 say(name .. ": " .. #reports .. " matching report(s) in history.")
                 if #reports > 0 then
                     calledOut[guid] = true
-                    ns.LearnGuid(reports, guid) -- remember the ID for exact matching next time
+                    ns.LearnGuid(reports, guid)
                     local shownName = reports[1].name or name
                     local ok, err = pcall(Send, BuildCallout(shownName, reports[1], channel), channel)
                     if not ok then Print("couldn't send callout (" .. tostring(err) .. ")") end
@@ -545,17 +539,17 @@ end
 local function ScheduleGroupCheck()
     if checkPending then return end
     checkPending = true
-    C_Timer.After(1.5, function() CheckGroup(false) end) -- let the roster finish loading
+    C_Timer.After(1.5, function() CheckGroup(false) end) -- wait for the roster
 end
 
--- /reportannouncer check : run the group check now and explain what it finds
+-- /reportannouncer check: run the group check now
 function ns.CheckGroupNow()
     wipe(calledOut)
     CheckGroup(true)
 end
 
 ---------------------------------------------------------------------------
--- Startup + slash command
+-- startup + slash commands
 ---------------------------------------------------------------------------
 local tooltipHooked = false
 
@@ -615,7 +609,7 @@ SlashCmdList["REPORTANNOUNCER"] = function(arg)
         Print("minimap button " .. (db.minimap.hide and "hidden." or "shown."))
     else
         local a = db.announce
-        local on = not (a.say or a.party or a.raid) -- all off -> turn all on, otherwise all off
+        local on = not (a.say or a.party or a.raid) -- all off: turn on, else turn off
         a.say, a.party, a.raid = on, on, on
         if ns.RefreshHistory then ns.RefreshHistory() end
         Print("chat announcing " .. (on and "enabled." or "disabled (history is still recorded)."))
