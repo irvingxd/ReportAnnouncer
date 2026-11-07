@@ -9,6 +9,7 @@ function ns.RefreshOptions()
     if checks.tip then checks.tip:SetChecked(db.tooltip) end
     if checks.callout then checks.callout:SetChecked(db.callout) end
     if checks.share then checks.share:SetChecked(db.shareCount) end
+    if checks.discord then checks.discord:SetChecked(db.discordPrompt) end
     for key, cb in pairs(checks.chan or {}) do cb:SetChecked(db.announce[key]) end
 end
 
@@ -88,9 +89,27 @@ function ns.BuildOptions(page)
     shareLabel:SetPoint("LEFT", checks.share, "RIGHT", 2, 0)
     shareLabel:SetText("Share my report count with other addon users")
 
+    -- discord helper
+    checks.discord = CreateFrame("CheckButton", nil, page, "UICheckButtonTemplate")
+    checks.discord:SetSize(24, 24)
+    checks.discord:SetPoint("TOPLEFT", 0, -112)
+    checks.discord:SetScript("OnClick", function(self)
+        ns.InitDB().discordPrompt = self:GetChecked() and true or false
+    end)
+    checks.discord:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Discord helper")
+        GameTooltip:AddLine("After you report, takes a screenshot and shows a message you can copy into Discord. Addons can't post to Discord themselves, so you paste it and drag the screenshot in yourself. Off by default.", 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    checks.discord:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    local discordLabel = page:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    discordLabel:SetPoint("LEFT", checks.discord, "RIGHT", 2, 0)
+    discordLabel:SetText("After reporting, prepare a Discord post + screenshot")
+
     -- message template
     local sub = page:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    sub:SetPoint("TOPLEFT", 4, -126)
+    sub:SetPoint("TOPLEFT", 4, -150)
     sub:SetText("Message sent to chat when you report a player")
 
     local edit = CreateFrame("EditBox", nil, page, "InputBoxTemplate")

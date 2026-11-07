@@ -8,6 +8,7 @@
 - The window now has side tabs: Personal List, Imported Lists, Statistics, Options. All settings (chat switches, tooltips, callout, message) moved into the Options tab; the Game Menu entry just opens it.
 - Custom message: variables `{name}` (required), `{category}`, `{reasons}`, `{details}`, `{zone}`, `{date}`, optional `[ ... ]` parts, live preview and reset.
 - **Community tally** (opt-in): addon users in your guild, groups, one chat channel (`/reportannouncer channel <name>`) and friends (character + Battle.net) share only their report count, never names; the total is shown in Statistics.
+- **Discord helper** (opt-in): after a report, takes a screenshot and shows a copy-paste Discord message with the screenshot file name (addons cannot post to Discord themselves).
 - New commands: `/reportannouncer stats`, `export`, `import`.
 - **Clear all** moved to the left, **Close** on the right.
 - Needs a full game restart after updating (new files).

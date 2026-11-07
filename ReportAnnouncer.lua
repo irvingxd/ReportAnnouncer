@@ -202,6 +202,7 @@ function ns.Record(entry)
     table.insert(db.history, 1, entry)
     while #db.history > MAX_HISTORY do table.remove(db.history) end
     if ns.RefreshHistory then ns.RefreshHistory() end
+    if db.discordPrompt and ns.PrepareDiscord then ns.PrepareDiscord(entry) end
 end
 
 ---------------------------------------------------------------------------
