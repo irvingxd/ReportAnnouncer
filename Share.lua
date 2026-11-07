@@ -335,43 +335,6 @@ function ns.ShowImport()
     d.edit:SetFocus()
 end
 
--- Discord helper. An addon can't send anything to Discord itself (no network or
--- file access), so after a report it takes a screenshot and shows a ready-to-paste
--- message plus the screenshot's file name to drag into Discord.
-function ns.PrepareDiscord(e)
-    local stamp = date("%m%d%y_%H%M%S")
-    pcall(Screenshot)
-    local reasons = ns.ReasonText(e)
-    local msg = ":rotating_light: **" .. (e.name or "?") .. "** was reported - " .. reasons
-        .. ((e.comment and e.comment ~= "") and (" - Details: " .. e.comment) or "")
-        .. " - Zone: " .. ((e.zone and e.zone ~= "") and e.zone or "?") .. " - " .. ns.DateText(e)
-    msg = msg:gsub("|r", ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("%c", "")
-
-    C_Timer.After(2, function()
-        if InCombatLockdown() then return end
-        dialog = dialog or CreateDialog()
-        local d = dialog
-        d.mode = "discord"
-        d.title:SetText("Post to Discord")
-        d.info:SetText("Copy this message (Ctrl+A, Ctrl+C) and paste it into Discord. Then drag the screenshot into the same message.")
-        d.check:Hide(); d.checkLabel:Hide()
-        d.edit:SetScript("OnTextChanged", nil)
-        d.edit:SetText(msg)
-        d.edit:SetCursorPosition(0)
-        d.edit:SetScript("OnTextChanged", function(self, user)
-            if user then self:SetText(msg); self:HighlightText() end
-        end)
-        d.status:SetTextColor(1, 1, 1)
-        d.status:SetText("Screenshot: WoWScrnShot_" .. stamp .. ".jpg (or one second later), in World of Warcraft/_forever_/Screenshots")
-        d.action:SetText("Select all")
-        d.action:Enable()
-        d.action:SetScript("OnClick", function() d.edit:SetFocus(); d.edit:HighlightText() end)
-        d:Show()
-        d.edit:SetFocus()
-        d.edit:HighlightText()
-    end)
-end
-
 local combat = CreateFrame("Frame")
 combat:RegisterEvent("PLAYER_REGEN_DISABLED")
 combat:SetScript("OnEvent", function()
