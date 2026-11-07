@@ -18,7 +18,7 @@ that share it (including Classic Forever).
 - **Statistics tab:** what people get reported for, reasons, zones and repeat offenders.
 - **Side tabs:** Personal List, Imported Lists, Statistics, Options.
 - **Custom messages:** in the Messages tab, edit the report message and the group callout, and add more variants with **+** (one is picked at random). Variables: `{name}`, `{category}`, `{reason}`, `{details}`, `{zone}`, `{date}`; empty variables drop their own words.
-- **Themes:** Classic, Forever or Midnight look for the window (Options tab).
+- **Themes:** Classic or Vibecoded look for the window (Options tab).
 - **Minimap button** that opens your report history: name, category and reasons, your
   details, the zone (including sub-zone) and the date.
 - **Tooltip summary** ("Reported by you") when you mouse over a player you reported.

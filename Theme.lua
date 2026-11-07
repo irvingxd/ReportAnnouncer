@@ -1,5 +1,5 @@
 -- themes for the addon windows (looks only).
--- classic = the normal WoW look, forever and midnight are flat.
+-- classic = the normal WoW look, vibecoded is a flat one.
 local ADDON, ns = ...
 
 local FLAT = "Interface\\Buttons\\WHITE8X8"
@@ -12,7 +12,7 @@ local THEMES = {
         bar = { 0, 0, 0, 0 },
         boxBg = { 0, 0, 0, 0.6 }, boxBorder = { 0.7, 0.7, 0.7, 1 },
     },
-    forever = {
+    vibecoded = {
         flat = true,
         bg = { 0.078, 0.086, 0.102, 0.97 }, border = { 0.79, 0.635, 0.29, 1 },
         accent = { 0.91, 0.77, 0.416 },
@@ -21,18 +21,9 @@ local THEMES = {
         btnHover = { 0.79, 0.635, 0.29, 1 }, btnText = { 0.91, 0.77, 0.416 },
         boxBg = { 0.055, 0.063, 0.075, 1 }, boxBorder = { 0.227, 0.235, 0.267, 1 },
     },
-    midnight = {
-        flat = true,
-        bg = { 0.055, 0.071, 0.149, 0.97 }, border = { 0.227, 0.29, 0.541, 1 },
-        accent = { 0.56, 0.706, 1 },
-        sel = { 0.1, 0.137, 0.314, 1 }, bar = { 0.435, 0.659, 1, 1 },
-        btnBg = { 0.094, 0.125, 0.29, 1 }, btnBorder = { 0.29, 0.357, 0.69, 1 },
-        btnHover = { 0.435, 0.659, 1, 1 }, btnText = { 0.81, 0.878, 1 },
-        boxBg = { 0.035, 0.047, 0.11, 1 }, boxBorder = { 0.173, 0.22, 0.439, 1 },
-    },
 }
 
-ns.THEME_LIST = { { "classic", "Classic" }, { "forever", "Forever" }, { "midnight", "Midnight" } }
+ns.THEME_LIST = { { "classic", "Classic" }, { "vibecoded", "Vibecoded" } }
 
 local function Key()
     local k = ns.InitDB().theme

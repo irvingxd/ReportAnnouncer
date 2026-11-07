@@ -103,6 +103,9 @@ function ns.BuildOptions(page)
         checks.theme[key] = b
         prevBtn = b
     end
+    local themeNote = page:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    themeNote:SetPoint("TOPLEFT", themeLabel, "BOTTOMLEFT", 0, -34)
+    themeNote:SetText("Vibecoded: I don't know how to design, so this look is just a best guess.")
 end
 
 ---------------------------------------------------------------------------
