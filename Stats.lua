@@ -12,6 +12,8 @@ local function SortedTop(counts, limit)
     return list
 end
 
+ns.SortedTop = SortedTop
+
 local function Bump(counts, key)
     if key and key ~= "" then counts[key] = (counts[key] or 0) + 1 end
 end
@@ -33,8 +35,19 @@ local function Tally(entries, categories, reasons, zones, perPlayer, labels)
     end
 end
 
--- Returns { total, players, categories = {{label,n}}, reasons, zones, repeats }
-function ns.ComputeStats(includeImports)
+-- counts of your own reports only (what the community tally shares)
+function ns.OwnCounts()
+    local c, r, z = {}, {}, {}
+    Tally(ns.InitDB().history, c, r, z, {}, {})
+    return c, r, z
+end
+
+local function Merge(into, from)
+    for k, v in pairs(from) do into[k] = (into[k] or 0) + v end
+end
+
+-- Returns { total, players, categories = {{label,n}}, reasons, zones, repeats, fromCommunity }
+function ns.ComputeStats(includeImports, includeCommunity)
     local db = ns.InitDB()
     local categories, reasons, zones = {}, {}, {}
     local perPlayer, labels = {}, {}
@@ -46,6 +59,15 @@ function ns.ComputeStats(includeImports)
             total = total + #list.entries
             Tally(list.entries, categories, reasons, zones, perPlayer, labels)
         end
+    end
+
+    -- numbers other addon users sent us
+    local fromCommunity = 0
+    if includeCommunity and ns.CommunityData then
+        local n, c, r, z = ns.CommunityData()
+        fromCommunity = n
+        total = total + n
+        Merge(categories, c); Merge(reasons, r); Merge(zones, z)
     end
 
     local players, repeatCounts = 0, {}
@@ -61,5 +83,6 @@ function ns.ComputeStats(includeImports)
         reasons = SortedTop(reasons, 8),
         zones = SortedTop(zones, 5),
         repeats = SortedTop(repeatCounts, 5),
+        fromCommunity = fromCommunity,
     }
 end

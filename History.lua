@@ -192,6 +192,17 @@ local function MakeStatsPage(f)
     incLabel:SetPoint("LEFT", page.inc, "RIGHT", 2, 0)
     incLabel:SetText("Include imported lists")
 
+    page.com = CreateFrame("CheckButton", nil, page, "UICheckButtonTemplate")
+    page.com:SetSize(24, 24)
+    page.com:SetPoint("TOPLEFT", 190, 0)
+    page.com:SetScript("OnClick", function(self)
+        ns.InitDB().statsCommunity = self:GetChecked() and true or false
+        ns.RefreshHistory()
+    end)
+    page.comLabel = page:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    page.comLabel:SetPoint("LEFT", page.com, "RIGHT", 2, 0)
+    page.comLabel:SetText("Include community numbers")
+
     local scroll = CreateFrame("ScrollFrame", "ReportAnnouncerScrollstats", page, "UIPanelScrollFrameTemplate")
     scroll:SetPoint("TOPLEFT", 0, -30)
     scroll:SetPoint("BOTTOMRIGHT", -24, 0)
@@ -220,7 +231,11 @@ local function RefreshStats()
     local page = win.pages.stats
     local db = ns.InitDB()
     page.inc:SetChecked(db.statsImports)
-    local s = ns.ComputeStats(db.statsImports)
+    local useCommunity = db.shareCount and db.statsCommunity
+    page.com:SetChecked(useCommunity)
+    page.com:SetEnabled(db.shareCount and true or false)
+    page.comLabel:SetAlpha(db.shareCount and 1 or 0.5)
+    local s = ns.ComputeStats(db.statsImports, useCommunity)
 
     local n, y = 0, 0
     local function Line() n = n + 1; return GetStatLine(page, n) end
@@ -269,8 +284,12 @@ local function RefreshStats()
     if s.total == 0 then
         Text("GameFontDisable", "No reports to analyse yet.", 10)
     else
-        Text("GameFontHighlight", s.total .. " report" .. (s.total == 1 and "" or "s")
-            .. " on " .. s.players .. " player" .. (s.players == 1 and "" or "s"))
+        if s.fromCommunity > 0 then
+            Text("GameFontHighlight", s.total .. " reports (" .. s.fromCommunity .. " from the community)")
+        else
+            Text("GameFontHighlight", s.total .. " report" .. (s.total == 1 and "" or "s")
+                .. " on " .. s.players .. " player" .. (s.players == 1 and "" or "s"))
+        end
         Section("What people get reported for", s.categories)
         Section("Reasons", s.reasons)
         Section("Where it happens", s.zones)
