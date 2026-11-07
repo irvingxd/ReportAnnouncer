@@ -11,6 +11,7 @@
 --           /reportannouncer history     open the history window
 --           /reportannouncer minimap     show/hide the minimap button
 --           /reportannouncer test        send a sample message
+--           /reportannouncer options     open the options (message template)
 
 local ADDON, ns = ...
 local MAX_LEN = 250
@@ -22,6 +23,65 @@ end
 ns.Print = Print
 
 ---------------------------------------------------------------------------
+-- Message template
+--   {name} {category} {reasons} {details} {zone} {date}
+--   [ ... ]  optional block: left out when a variable inside it is empty
+---------------------------------------------------------------------------
+ns.DEFAULT_TEMPLATE = "{name} was reported[ for {category}][, the reason: {reasons}].[ Details: {details}]"
+ns.TEMPLATE_VARS = { name = true, category = true, reasons = true, details = true, zone = true, date = true }
+local MAX_TEMPLATE = 220
+
+-- Replace {vars} in text. Second result is true if a variable in it was empty.
+local function Fill(text, vars)
+    local empty = false
+    local out = text:gsub("{(%a+)}", function(key)
+        local value = vars[key]
+        if value == nil then return nil end -- unknown: leave as typed
+        if value == "" then empty = true end
+        return value
+    end)
+    return out, empty
+end
+
+function ns.RenderTemplate(tpl, vars)
+    local out, pos = {}, 1
+    while true do
+        local s, e, inner = tpl:find("%[([^%[%]]*)%]", pos)
+        if not s then
+            out[#out + 1] = (Fill(tpl:sub(pos), vars))
+            break
+        end
+        out[#out + 1] = (Fill(tpl:sub(pos, s - 1), vars))
+        local text, empty = Fill(inner, vars)
+        if not empty then out[#out + 1] = text end
+        pos = e + 1
+    end
+    return strtrim(table.concat(out))
+end
+
+function ns.SAMPLE_VARS()
+    return {
+        name = "Test Player", category = "Gameplay Sabotage", reasons = "AFK/Non-Participation",
+        details = "test", zone = "Silverpine Forest", date = date("%Y-%m-%d"),
+    }
+end
+
+-- true, or false + the reason it can't be used
+function ns.ValidateTemplate(tpl)
+    if type(tpl) ~= "string" or strtrim(tpl) == "" then return false, "The message can't be empty." end
+    if #tpl > MAX_TEMPLATE then return false, "Too long (max " .. MAX_TEMPLATE .. " characters)." end
+    local hasName = false
+    for key in tpl:gmatch("{(%a+)}") do
+        if not ns.TEMPLATE_VARS[key] then return false, "Unknown variable {" .. key .. "}." end
+        if key == "name" then hasName = true end
+    end
+    if not hasName then return false, "{name} is required, so everyone knows who was reported." end
+    local rest = tpl:gsub("%[[^%[%]]*%]", "")
+    if rest:find("[%[%]]") then return false, "Unbalanced or nested [ ] optional block." end
+    return true
+end
+
+---------------------------------------------------------------------------
 -- Saved data
 ---------------------------------------------------------------------------
 local function InitDB()
@@ -30,6 +90,7 @@ local function InitDB()
     db.history = db.history or {}
     if db.tooltip == nil then db.tooltip = true end
     if db.callout == nil then db.callout = false end -- opt-in
+    if not ns.ValidateTemplate(db.template) then db.template = ns.DEFAULT_TEMPLATE end
     db.minimap = db.minimap or { angle = 215 }
     db.announce = db.announce or { say = true, party = true, raid = true }
     if db.disabled then -- migrate the old single on/off switch
@@ -259,15 +320,14 @@ local function Announce()
     end
     if not ChannelAllowed(channel) then return end
 
-    local msg = name .. " was reported"
-    if category then msg = msg .. " for " .. category end
-    if #reasons > 0 then
-        msg = msg .. ", the reason: " .. table.concat(reasons, ", ")
-    end
-    msg = msg .. "."
-    if comment and comment ~= "" then
-        msg = msg .. " Details: " .. comment
-    end
+    local msg = ns.RenderTemplate(InitDB().template, {
+        name = name,
+        category = category or "",
+        reasons = table.concat(reasons, ", "),
+        details = comment or "",
+        zone = ZoneText(),
+        date = date("%Y-%m-%d"),
+    })
 
     local ok, err = pcall(Send, msg, channel)
     if not ok then
@@ -465,7 +525,9 @@ SlashCmdList["REPORTANNOUNCER"] = function(arg)
     if arg == "test" then
         local ch = PickChannel()
         Print("sending a test message to " .. ch .. ".")
-        Send("Test Player was reported for Gameplay Sabotage, the reason: AFK/Non-Participation. Details: test", ch)
+        Send(ns.RenderTemplate(db.template, ns.SAMPLE_VARS()), ch)
+    elseif arg == "options" or arg == "config" or arg == "template" then
+        if ns.OpenOptions then ns.OpenOptions() end
     elseif arg == "history" or arg == "show" or arg == "list" then
         if ns.ToggleHistory then ns.ToggleHistory() end
     elseif arg == "check" then

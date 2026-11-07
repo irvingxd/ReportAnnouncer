@@ -225,13 +225,29 @@ local function CreateWindow()
     f.empty:SetText("No reports yet.")
 
     f.count = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    f.count:SetPoint("BOTTOMLEFT", 22, 20)
+    f.count:SetPoint("BOTTOMLEFT", 132, 21)
 
+    -- bottom row: destructive action on the left, Close on the right
     local clear = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
     clear:SetSize(100, 24)
-    clear:SetPoint("BOTTOMRIGHT", -22, 16)
+    clear:SetPoint("BOTTOMLEFT", 22, 16)
     clear:SetText("Clear all")
     clear:SetScript("OnClick", function() StaticPopup_Show("REPORTANNOUNCER_CLEAR") end)
+
+    local closeBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    closeBtn:SetSize(100, 24)
+    closeBtn:SetPoint("BOTTOMRIGHT", -22, 16)
+    closeBtn:SetText("Close")
+    closeBtn:SetScript("OnClick", function() f:Hide() end)
+
+    local optBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    optBtn:SetSize(100, 24)
+    optBtn:SetPoint("RIGHT", closeBtn, "LEFT", -8, 0)
+    optBtn:SetText("Options")
+    optBtn:SetScript("OnClick", function()
+        f:Hide()
+        if ns.OpenOptions then ns.OpenOptions() end
+    end)
 
     f:SetScript("OnShow", ns.RefreshHistory)
     tinsert(UISpecialFrames, "ReportAnnouncerHistoryFrame") -- Esc closes it

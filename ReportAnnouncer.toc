@@ -8,3 +8,4 @@
 
 ReportAnnouncer.lua
 History.lua
+Options.lua

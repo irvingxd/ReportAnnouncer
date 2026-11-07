@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.15.0
+
+- Options panel (Game Menu > Options > AddOns > Report Announcer, or `/reportannouncer options`): customise the announcement with variables `{name}` (required), `{category}`, `{reasons}`, `{details}`, `{zone}`, `{date}`, optional `[ ... ]` parts, live preview and reset.
+- History window: **Clear all** moved to the left, **Close** (and **Options**) on the right.
+
 ## 1.14.0
 
 - Reports of players who are not in your party or raid are announced in `/say` instead of group chat; group chat is only used when the reported player is in the group.
