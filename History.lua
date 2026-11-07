@@ -304,6 +304,7 @@ function ns.RefreshHistory()
 
     for key, b in pairs(win.tabButtons) do
         b.selected:SetShown(key == tab)
+        b.bar:SetShown(key == tab)
         win.pages[key]:SetShown(key == tab)
     end
 
@@ -337,6 +338,7 @@ function ns.RefreshHistory()
         if ns.RefreshOptions then ns.RefreshOptions() end
     end
     win.count:SetText(countText)
+    ns.ApplyTheme()
 end
 
 local function SelectTab(key)
@@ -366,6 +368,13 @@ local function MakeTabButton(f, index, tab)
     b.selected:SetAllPoints()
     b.selected:SetColorTexture(1, 0.82, 0, 0.2)
     b.selected:Hide()
+
+    b.bar = b:CreateTexture(nil, "ARTWORK")
+    b.bar:SetWidth(3)
+    b.bar:SetPoint("TOPLEFT")
+    b.bar:SetPoint("BOTTOMLEFT")
+    b.bar:Hide()
+    ns.SkinTab(b)
 
     local hl = b:CreateTexture(nil, "HIGHLIGHT")
     hl:SetAllPoints()
@@ -469,6 +478,7 @@ local function CreateWindow()
     f:SetScript("OnShow", ns.RefreshHistory)
     tinsert(UISpecialFrames, "ReportAnnouncerHistoryFrame") -- esc closes it
     f:Hide()
+    ns.ApplyTheme()
     return f
 end
 

@@ -236,6 +236,7 @@ local function CreateDialog()
 
     tinsert(UISpecialFrames, "ReportAnnouncerShareDialog")
     d:Hide()
+    ns.ApplyTheme()
     return d
 end
 

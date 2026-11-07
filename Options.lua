@@ -9,6 +9,7 @@ function ns.RefreshOptions()
     if checks.callout then checks.callout:SetChecked(db.callout) end
     if checks.share then checks.share:SetChecked(db.shareCount) end
     for key, cb in pairs(checks.chan or {}) do cb:SetChecked(db.announce[key]) end
+    for key, b in pairs(checks.theme or {}) do b:SetEnabled(key ~= ns.GetThemeKey()) end
 end
 
 function ns.BuildOptions(page)
@@ -82,6 +83,26 @@ function ns.BuildOptions(page)
     local shareLabel = page:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     shareLabel:SetPoint("LEFT", checks.share, "RIGHT", 2, 0)
     shareLabel:SetText("Share my report count with other addon users")
+
+    -- theme
+    local themeLabel = page:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    themeLabel:SetPoint("TOPLEFT", 4, -128)
+    themeLabel:SetText("Theme:")
+    checks.theme = {}
+    local prevBtn
+    for _, th in ipairs(ns.THEME_LIST) do
+        local key, text = th[1], th[2]
+        local b = CreateFrame("Button", nil, page, "UIPanelButtonTemplate")
+        b:SetSize(100, 24)
+        if prevBtn then b:SetPoint("LEFT", prevBtn, "RIGHT", 6, 0) else b:SetPoint("LEFT", themeLabel, "RIGHT", 12, 0) end
+        b:SetText(text)
+        b:SetScript("OnClick", function()
+            ns.SetTheme(key)
+            ns.RefreshOptions()
+        end)
+        checks.theme[key] = b
+        prevBtn = b
+    end
 end
 
 ---------------------------------------------------------------------------

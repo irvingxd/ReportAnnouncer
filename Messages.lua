@@ -71,16 +71,7 @@ function ns.BuildMessages(page)
         r.box = CreateFrame("Frame", nil, r, BackdropTemplateMixin and "BackdropTemplate" or nil)
         r.box:SetPoint("TOPLEFT", 0, -2)
         r.box:SetSize(404, 46)
-        if r.box.SetBackdrop then
-            r.box:SetBackdrop({
-                bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-                edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-                tile = true, tileSize = 16, edgeSize = 14,
-                insets = { left = 3, right = 3, top = 3, bottom = 3 },
-            })
-            r.box:SetBackdropColor(0, 0, 0, 0.6)
-            r.box:SetBackdropBorderColor(0.7, 0.7, 0.7, 1)
-        end
+        ns.SkinBox(r.box)
         r.edit = CreateFrame("EditBox", nil, r.box)
         r.edit:SetPoint("TOPLEFT", 8, -6)
         r.edit:SetPoint("BOTTOMRIGHT", -8, 6)
@@ -197,6 +188,7 @@ function ns.BuildMessages(page)
         content:SetHeight(math.max(1, #list * VROW_H))
         add:SetEnabled(#list < MAX_VARIANTS)
         hint:SetText(#list .. " / " .. MAX_VARIANTS)
+        ns.ApplyTheme()
     end
 
     page:SetScript("OnShow", ns.RefreshMessages)

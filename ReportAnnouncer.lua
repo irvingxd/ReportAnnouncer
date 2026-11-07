@@ -12,16 +12,6 @@ local function Print(msg)
 end
 ns.Print = Print
 
-function ns.DialogBackdrop(frame)
-    if not frame.SetBackdrop then return end
-    frame:SetBackdrop({
-        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
-        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-        tile = true, tileSize = 32, edgeSize = 32,
-        insets = { left = 11, right = 12, top = 12, bottom = 11 },
-    })
-end
-
 ---------------------------------------------------------------------------
 -- message variables: {name} {category} {reasons} {details} {zone} {date}
 -- [ ... ] is left out when a variable inside it is empty
