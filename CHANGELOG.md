@@ -1,9 +1,15 @@
 # Changelog
 
-## 1.15.0
+## 2.0.0
 
-- Options panel (Game Menu > Options > AddOns > Report Announcer, or `/reportannouncer options`): customise the announcement with variables `{name}` (required), `{category}`, `{reasons}`, `{details}`, `{zone}`, `{date}`, optional `[ ... ]` parts, live preview and reset.
-- History window: **Clear all** moved to the left, **Close** (and **Options**) on the right.
+- **Sharing:** Export your list as an encoded string (`RA1:...`) and Import lists other people shared. Strings carry a checksum, so damaged or edited ones are rejected, and imported text is sanitised.
+- **Imported Lists** are kept separate from your own list and are never used for tooltips or group callouts.
+- **Statistics** tab: what people get reported for (categories, reasons), where, and repeat offenders; optionally including imported lists.
+- The window now has side tabs: Personal List, Imported Lists, Statistics, Options. All settings (chat switches, tooltips, callout, message) moved into the Options tab; the Game Menu entry just opens it.
+- Custom message: variables `{name}` (required), `{category}`, `{reasons}`, `{details}`, `{zone}`, `{date}`, optional `[ ... ]` parts, live preview and reset.
+- New commands: `/reportannouncer stats`, `export`, `import`.
+- **Clear all** moved to the left, **Close** on the right.
+- Needs a full game restart after updating (new files).
 
 ## 1.14.0
 

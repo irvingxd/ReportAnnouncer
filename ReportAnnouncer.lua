@@ -88,6 +88,7 @@ local function InitDB()
     ReportAnnouncerDB = ReportAnnouncerDB or {}
     local db = ReportAnnouncerDB
     db.history = db.history or {}
+    db.imports = db.imports or {} -- lists shared by other people, kept apart from db.history
     if db.tooltip == nil then db.tooltip = true end
     if db.callout == nil then db.callout = false end -- opt-in
     if not ns.ValidateTemplate(db.template) then db.template = ns.DEFAULT_TEMPLATE end
@@ -530,6 +531,12 @@ SlashCmdList["REPORTANNOUNCER"] = function(arg)
         if ns.OpenOptions then ns.OpenOptions() end
     elseif arg == "history" or arg == "show" or arg == "list" then
         if ns.ToggleHistory then ns.ToggleHistory() end
+    elseif arg == "stats" or arg == "statistics" then
+        if ns.ShowTab then ns.ShowTab("stats") end
+    elseif arg == "export" or arg == "share" then
+        if ns.ShowExport then ns.ShowExport() end
+    elseif arg == "import" then
+        if ns.ShowImport then ns.ShowImport() end
     elseif arg == "check" then
         ns.CheckGroupNow()
     elseif arg == "minimap" then

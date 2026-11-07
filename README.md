@@ -13,7 +13,10 @@ that share it (including Classic Forever).
 
   `Rutio Argento was reported for Cheating, the reason: Hacking, Botting. Details: botting forever fishing`
 
-- **Custom message:** change the wording in the options panel with `{name}`, `{category}`, `{reasons}`, `{details}`, `{zone}`, `{date}` and optional `[ ... ]` parts.
+- **Share your list:** *Export* gives an encoded string (`RA1:...`) you can send to others; *Import* adds a list someone sent you. Imported lists are kept separate and never appear in tooltips or callouts. Strings are checksummed (this is encoding, not encryption).
+- **Statistics tab:** what people get reported for, reasons, zones and repeat offenders.
+- **Side tabs:** Personal List, Imported Lists, Statistics, Options.
+- **Custom message:** change the wording in the Options tab with `{name}`, `{category}`, `{reasons}`, `{details}`, `{zone}`, `{date}` and optional `[ ... ]` parts.
 - **Minimap button** that opens your report history: name, category and reasons, your
   details, the zone (including sub-zone) and the date.
 - **Tooltip summary** ("Reported by you") when you mouse over a player you reported.
@@ -38,6 +41,8 @@ that share it (including Classic Forever).
 | `/reportannouncer history` | Open the history window |
 | `/reportannouncer minimap` | Show/hide the minimap button |
 | `/reportannouncer options` | Open the options (custom message) |
+| `/reportannouncer stats` | Open the Statistics tab |
+| `/reportannouncer export` / `import` | Share your list / import someone else's |
 | `/reportannouncer test` | Send a sample message |
 | `/reportannouncer check` | Run the group callout check now and explain the result |
 

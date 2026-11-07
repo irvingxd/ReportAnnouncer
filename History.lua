@@ -1,17 +1,26 @@
--- ReportAnnouncer: minimap button + history window
+-- ReportAnnouncer: main window (Personal List / Imported Lists / Statistics / Options)
+-- and the minimap button
 local ADDON, ns = ...
 
-local FRAME_W, FRAME_H = 580, 460
+local FRAME_W, FRAME_H = 660, 500
+local CONTENT_X = 156
+local LIST_W = FRAME_W - CONTENT_X - 22 - 24
 local ROW_H = 48
-local RIGHT_W = 40 -- space reserved for the delete button on each row
+local RIGHT_W = 64 -- space reserved for the delete button on each row
+
+local TABS = {
+    { key = "personal", label = "Personal List", icon = "Interface\\Icons\\INV_Misc_Note_01" },
+    { key = "imported", label = "Imported Lists", icon = "Interface\\Icons\\INV_Letter_02" },
+    { key = "stats", label = "Statistics", icon = "Interface\\Icons\\INV_Misc_Book_09" },
+    { key = "options", label = "Options", icon = "Interface\\Icons\\INV_Misc_Gear_01" },
+}
 
 local win
-local rows = {}
 
 local atan2 = math.atan2 or function(y, x) return math.atan(y, x) end
 
 ---------------------------------------------------------------------------
--- History window
+-- List pages (personal + imported share the same row code)
 ---------------------------------------------------------------------------
 local function RemoveEntry(entry)
     local hist = ns.InitDB().history
@@ -23,19 +32,19 @@ local function RemoveEntry(entry)
     end
 end
 
-local function GetRow(i, content)
-    local r = rows[i]
+local function GetRow(page, i)
+    local r = page.rows[i]
     if r then return r end
+    local content = page.content
+    local textW = LIST_W - RIGHT_W
 
-    local textW = content:GetWidth() - RIGHT_W
     r = CreateFrame("Frame", nil, content)
-    r:SetSize(content:GetWidth(), ROW_H)
+    r:SetSize(LIST_W, ROW_H)
     r:SetPoint("TOPLEFT", 0, -(i - 1) * ROW_H)
     r:EnableMouse(true)
 
     r.bg = r:CreateTexture(nil, "BACKGROUND")
     r.bg:SetAllPoints()
-    r.bg:SetColorTexture(1, 1, 1, (i % 2 == 0) and 0.06 or 0)
 
     r.line1 = r:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     r.line1:SetPoint("TOPLEFT", 6, -5)
@@ -55,70 +64,277 @@ local function GetRow(i, content)
     r.line3:SetJustifyH("LEFT")
     r.line3:SetWordWrap(false)
 
-    -- delete button
     r.del = CreateFrame("Button", nil, r, "UIPanelButtonTemplate")
-    r.del:SetSize(24, 22)
+    r.del:SetHeight(22)
     r.del:SetPoint("RIGHT", -4, 0)
-    r.del:SetText("X")
     r.del:SetScript("OnClick", function()
-        RemoveEntry(r.entry)
+        local item = r.item
+        if not item then return end
+        if item.kind == "header" then
+            ns.DeleteImportedList(item.list)
+        else
+            RemoveEntry(item.entry)
+        end
         ns.RefreshHistory()
     end)
     r.del:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText("Delete this report from the history")
+        local item = r.item
+        GameTooltip:SetText(item and item.kind == "header" and "Delete this imported list"
+            or "Delete this report from the history")
         GameTooltip:Show()
     end)
     r.del:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-    -- hover: full details (the lines above are truncated)
+    -- hover: full details (the lines are truncated)
     r:SetScript("OnEnter", function(self)
-        local e = self.entry
-        if not e then return end
+        local item = self.item
+        if not item or item.kind ~= "entry" then return end
+        local e = item.entry
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:SetText(e.name or "?", 1, 0.82, 0)
         GameTooltip:AddLine(ns.ReasonText(e), 1, 1, 1, true)
-        GameTooltip:AddLine("Zone: " .. (e.zone or "?"), 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine("Zone: " .. (e.zone ~= "" and e.zone or "?"), 0.8, 0.8, 0.8, true)
         GameTooltip:AddLine("Date: " .. ns.DateText(e), 0.8, 0.8, 0.8, true)
         if e.comment then
             GameTooltip:AddLine("Details: " .. e.comment, 0.8, 0.8, 0.8, true)
+        end
+        if item.source then
+            GameTooltip:AddLine("Imported from " .. item.source, 0.4, 0.8, 1, true)
         end
         GameTooltip:Show()
     end)
     r:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-    rows[i] = r
+    page.rows[i] = r
     return r
+end
+
+local function ConfigureRow(r, item, i)
+    r.item = item
+    if item.kind == "header" then
+        local l = item.list
+        r.bg:SetColorTexture(0.2, 0.5, 0.8, 0.2)
+        r.line1:SetText("|cff66ccffShared by " .. l.source .. "|r")
+        r.line2:SetText(#l.entries .. " report" .. (#l.entries == 1 and "" or "s")
+            .. "  -  imported " .. date("%Y-%m-%d", l.t or 0))
+        r.line3:SetText("")
+        r.del:SetText("Delete")
+        r.del:SetWidth(54)
+        r.del:Show()
+    else
+        local e = item.entry
+        r.bg:SetColorTexture(1, 1, 1, (i % 2 == 0) and 0.06 or 0)
+        r.line1:SetText("|cffffd100" .. (e.name or "?") .. "|r   |cff888888" .. ns.DateText(e) .. "|r")
+        r.line2:SetText(ns.ReasonText(e))
+        local line3 = (e.zone and e.zone ~= "") and e.zone or "?"
+        if e.comment then line3 = line3 .. "  -  Details: " .. e.comment end
+        r.line3:SetText(line3)
+        if item.deletable then
+            r.del:SetText("X")
+            r.del:SetWidth(24)
+            r.del:Show()
+        else
+            r.del:Hide()
+        end
+    end
+    r:Show()
+end
+
+local function MakeListPage(f, key, emptyText)
+    local page = CreateFrame("Frame", nil, f)
+    page:SetPoint("TOPLEFT", f, "TOPLEFT", CONTENT_X, -50)
+    page:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -22, 52)
+    page.rows = {}
+
+    local scroll = CreateFrame("ScrollFrame", "ReportAnnouncerScroll" .. key, page, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", 0, 0)
+    scroll:SetPoint("BOTTOMRIGHT", -24, 0)
+    page.content = CreateFrame("Frame", nil, scroll)
+    page.content:SetSize(LIST_W, 1)
+    scroll:SetScrollChild(page.content)
+
+    page.empty = page:CreateFontString(nil, "OVERLAY", "GameFontDisable")
+    page.empty:SetPoint("CENTER", scroll, "CENTER")
+    page.empty:SetWidth(LIST_W - 40)
+    page.empty:SetText(emptyText)
+
+    function page.SetItems(items)
+        for i, item in ipairs(items) do
+            ConfigureRow(GetRow(page, i), item, i)
+        end
+        for i = #items + 1, #page.rows do page.rows[i]:Hide() end
+        page.content:SetHeight(math.max(1, #items * ROW_H))
+        page.empty:SetShown(#items == 0)
+    end
+    return page
+end
+
+---------------------------------------------------------------------------
+-- Statistics page
+---------------------------------------------------------------------------
+local BAR_X, BAR_MAX, VALUE_X = 156, 230, 392
+
+local function MakeStatsPage(f)
+    local page = CreateFrame("Frame", nil, f)
+    page:SetPoint("TOPLEFT", f, "TOPLEFT", CONTENT_X, -50)
+    page:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -22, 52)
+    page.lines = {}
+
+    page.inc = CreateFrame("CheckButton", nil, page, "UICheckButtonTemplate")
+    page.inc:SetSize(24, 24)
+    page.inc:SetPoint("TOPLEFT", -4, 0)
+    page.inc:SetScript("OnClick", function(self)
+        ns.InitDB().statsImports = self:GetChecked() and true or false
+        ns.RefreshHistory()
+    end)
+    local incLabel = page:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    incLabel:SetPoint("LEFT", page.inc, "RIGHT", 2, 0)
+    incLabel:SetText("Include imported lists")
+
+    local scroll = CreateFrame("ScrollFrame", "ReportAnnouncerScrollstats", page, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", 0, -30)
+    scroll:SetPoint("BOTTOMRIGHT", -24, 0)
+    page.content = CreateFrame("Frame", nil, scroll)
+    page.content:SetSize(LIST_W, 1)
+    scroll:SetScrollChild(page.content)
+    return page
+end
+
+local function GetStatLine(page, i)
+    local l = page.lines[i]
+    if l then return l end
+    l = {}
+    l.label = page.content:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    l.label:SetJustifyH("LEFT")
+    l.label:SetWordWrap(false)
+    l.bar = page.content:CreateTexture(nil, "ARTWORK")
+    l.bar:SetColorTexture(0.2, 0.6, 1, 0.8)
+    l.value = page.content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    l.value:SetJustifyH("LEFT")
+    page.lines[i] = l
+    return l
+end
+
+local function RefreshStats()
+    local page = win.pages.stats
+    local db = ns.InitDB()
+    page.inc:SetChecked(db.statsImports)
+    local s = ns.ComputeStats(db.statsImports)
+
+    local n, y = 0, 0
+    local function Line() n = n + 1; return GetStatLine(page, n) end
+    local function Text(font, text, gap)
+        y = y + (gap or 0)
+        local l = Line()
+        l.label:SetFontObject(font)
+        l.label:ClearAllPoints()
+        l.label:SetPoint("TOPLEFT", page.content, "TOPLEFT", 4, -y)
+        l.label:SetWidth(LIST_W - 8)
+        l.label:SetText(text)
+        l.label:Show(); l.bar:Hide(); l.value:Hide()
+        y = y + 20
+    end
+    local function Section(title, list, asCount)
+        if #list == 0 then return end
+        Text("GameFontNormal", title, 10)
+        for _, item in ipairs(list) do
+            local l = Line()
+            l.label:SetFontObject("GameFontHighlight")
+            l.label:ClearAllPoints()
+            l.label:SetPoint("TOPLEFT", page.content, "TOPLEFT", 10, -y)
+            l.label:SetWidth(BAR_X - 16)
+            l.label:SetText(item.label)
+            l.bar:ClearAllPoints()
+            l.bar:SetPoint("TOPLEFT", page.content, "TOPLEFT", BAR_X, -(y + 2))
+            l.bar:SetSize(math.max(2, math.floor(BAR_MAX * item.n / list[1].n)), 12)
+            l.value:ClearAllPoints()
+            l.value:SetPoint("TOPLEFT", page.content, "TOPLEFT", VALUE_X, -(y + 2))
+            l.value:SetText(asCount and ("x" .. item.n)
+                or string.format("%d (%d%%)", item.n, math.floor(item.n * 100 / s.total + 0.5)))
+            l.label:Show(); l.bar:Show(); l.value:Show()
+            y = y + 18
+        end
+    end
+
+    if s.total == 0 then
+        Text("GameFontDisable", "No reports to analyse yet.")
+    else
+        Text("GameFontHighlight", s.total .. " report" .. (s.total == 1 and "" or "s")
+            .. " on " .. s.players .. " player" .. (s.players == 1 and "" or "s"))
+        Section("What people get reported for", s.categories)
+        Section("Reasons", s.reasons)
+        Section("Where it happens", s.zones)
+        Section("Reported more than once", s.repeats, true)
+    end
+    for i = n + 1, #page.lines do
+        local l = page.lines[i]
+        l.label:Hide(); l.bar:Hide(); l.value:Hide()
+    end
+    page.content:SetHeight(math.max(1, y + 10))
+end
+
+---------------------------------------------------------------------------
+-- Window
+---------------------------------------------------------------------------
+local function ImportedItems()
+    local items = {}
+    for _, list in ipairs(ns.InitDB().imports) do
+        items[#items + 1] = { kind = "header", list = list }
+        for _, e in ipairs(list.entries) do
+            items[#items + 1] = { kind = "entry", entry = e, source = list.source }
+        end
+    end
+    return items
 end
 
 function ns.RefreshHistory()
     if not win or not win:IsShown() then return end
     local db = ns.InitDB()
-    local hist = db.history
+    local tab = win.tab
 
-    win.tipCheck:SetChecked(db.tooltip)
-    win.calloutCheck:SetChecked(db.callout)
-    for key, cb in pairs(win.chanChecks) do cb:SetChecked(db.announce[key]) end
-
-    for i, e in ipairs(hist) do
-        local r = GetRow(i, win.content)
-        r.entry = e
-        r.line1:SetText("|cffffd100" .. (e.name or "?") .. "|r   |cff888888" .. ns.DateText(e) .. "|r")
-        r.line2:SetText(ns.ReasonText(e))
-        local line3 = e.zone or "?"
-        if e.comment then line3 = line3 .. "  -  Details: " .. e.comment end
-        r.line3:SetText(line3)
-        r:Show()
+    for key, b in pairs(win.tabButtons) do
+        b.selected:SetShown(key == tab)
+        win.pages[key]:SetShown(key == tab)
     end
-    for i = #hist + 1, #rows do rows[i]:Hide() end
 
-    win.content:SetHeight(math.max(1, #hist * ROW_H))
-    win.empty:SetShown(#hist == 0)
-    win.count:SetText(#hist .. " report" .. (#hist == 1 and "" or "s"))
+    win.clear:SetShown(tab == "personal")
+    win.export:SetShown(tab == "personal")
+    win.import:SetShown(tab == "personal" or tab == "imported")
+    win.import:ClearAllPoints()
+    if tab == "personal" then
+        win.import:SetPoint("LEFT", win.export, "RIGHT", 6, 0)
+    else
+        win.import:SetPoint("BOTTOMLEFT", 22, 16)
+    end
+
+    local countText = ""
+    if tab == "personal" then
+        local items = {}
+        for _, e in ipairs(db.history) do items[#items + 1] = { kind = "entry", entry = e, deletable = true } end
+        win.pages.personal.SetItems(items)
+        countText = #items .. " report" .. (#items == 1 and "" or "s")
+    elseif tab == "imported" then
+        local items = ImportedItems()
+        win.pages.imported.SetItems(items)
+        local reports = #items - #db.imports
+        countText = #db.imports .. " list" .. (#db.imports == 1 and "" or "s") .. ", "
+            .. reports .. " report" .. (reports == 1 and "" or "s")
+    elseif tab == "stats" then
+        RefreshStats()
+    elseif tab == "options" then
+        if ns.RefreshOptions then ns.RefreshOptions() end
+    end
+    win.count:SetText(countText)
+end
+
+local function SelectTab(key)
+    win.tab = key
+    ns.RefreshHistory()
 end
 
 StaticPopupDialogs["REPORTANNOUNCER_CLEAR"] = {
-    text = "Are you sure?\n\nThis deletes your entire report history and cannot be undone.",
+    text = "Are you sure?\n\nThis deletes your entire personal report history and cannot be undone. Imported lists are not affected.",
     button1 = YES,
     button2 = NO,
     OnAccept = function()
@@ -129,6 +345,36 @@ StaticPopupDialogs["REPORTANNOUNCER_CLEAR"] = {
     whileDead = true,
     hideOnEscape = true,
 }
+
+local function MakeTabButton(f, index, tab)
+    local b = CreateFrame("Button", nil, f)
+    b:SetSize(124, 38)
+    b:SetPoint("TOPLEFT", 22, -52 - (index - 1) * 42)
+
+    b.selected = b:CreateTexture(nil, "BACKGROUND")
+    b.selected:SetAllPoints()
+    b.selected:SetColorTexture(1, 0.82, 0, 0.2)
+    b.selected:Hide()
+
+    local hl = b:CreateTexture(nil, "HIGHLIGHT")
+    hl:SetAllPoints()
+    hl:SetColorTexture(1, 1, 1, 0.1)
+
+    b.icon = b:CreateTexture(nil, "ARTWORK")
+    b.icon:SetSize(28, 28)
+    b.icon:SetPoint("LEFT", 5, 0)
+    b.icon:SetTexture(tab.icon)
+    b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+
+    b.text = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    b.text:SetPoint("LEFT", b.icon, "RIGHT", 6, 0)
+    b.text:SetPoint("RIGHT", -2, 0)
+    b.text:SetJustifyH("LEFT")
+    b.text:SetText(tab.label)
+
+    b:SetScript("OnClick", function() SelectTab(tab.key) end)
+    return b
+end
 
 local function CreateWindow()
     local f = CreateFrame("Frame", "ReportAnnouncerHistoryFrame", UIParent,
@@ -150,89 +396,56 @@ local function CreateWindow()
             insets = { left = 11, right = 12, top = 12, bottom = 11 },
         })
     end
+    f.tab = "personal"
 
     local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     title:SetPoint("TOP", 0, -16)
-    title:SetText("Reported Players")
+    title:SetText("Report Announcer")
 
     local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", -5, -5)
 
-    -- global tooltip switch
-    f.tipCheck = CreateFrame("CheckButton", nil, f, "UICheckButtonTemplate")
-    f.tipCheck:SetSize(24, 24)
-    f.tipCheck:SetPoint("TOPLEFT", 20, -42)
-    f.tipCheck:SetScript("OnClick", function(self)
-        ns.InitDB().tooltip = self:GetChecked() and true or false
-    end)
-    local tipLabel = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    tipLabel:SetPoint("LEFT", f.tipCheck, "RIGHT", 2, 0)
-    tipLabel:SetText("Show reports in player tooltips")
-
-    -- group callout switch (opt-in)
-    f.calloutCheck = CreateFrame("CheckButton", nil, f, "UICheckButtonTemplate")
-    f.calloutCheck:SetSize(24, 24)
-    f.calloutCheck:SetPoint("TOPLEFT", 20, -98)
-    f.calloutCheck:SetScript("OnClick", function(self)
-        ns.InitDB().callout = self:GetChecked() and true or false
-    end)
-    f.calloutCheck:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText("Call out reported players")
-        GameTooltip:AddLine("When someone you reported is in your party or raid, posts a notice in party/raid chat (respects the /party and /raid switches above). Off by default.", 1, 1, 1, true)
-        GameTooltip:Show()
-    end)
-    f.calloutCheck:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    local calloutLabel = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    calloutLabel:SetPoint("LEFT", f.calloutCheck, "RIGHT", 2, 0)
-    calloutLabel:SetText("Call out reported players who are in my group")
-
-    -- chat announcing switches
-    local annLabel = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    annLabel:SetPoint("TOPLEFT", 26, -74)
-    annLabel:SetText("Announce in chat:")
-    f.chanChecks = {}
-    local prev
-    for _, c in ipairs({ { "say", "/say" }, { "party", "/party" }, { "raid", "/raid" } }) do
-        local key, text = c[1], c[2]
-        local cb = CreateFrame("CheckButton", nil, f, "UICheckButtonTemplate")
-        cb:SetSize(24, 24)
-        if prev then
-            cb:SetPoint("LEFT", prev, "RIGHT", 52, 0)
-        else
-            cb:SetPoint("LEFT", annLabel, "RIGHT", 8, 0)
-        end
-        cb:SetScript("OnClick", function(self)
-            ns.InitDB().announce[key] = self:GetChecked() and true or false
-        end)
-        local label = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-        label:SetPoint("LEFT", cb, "RIGHT", 2, 0)
-        label:SetText(text)
-        f.chanChecks[key] = cb
-        prev = cb
+    -- side tabs
+    f.tabButtons = {}
+    for i, tab in ipairs(TABS) do
+        f.tabButtons[tab.key] = MakeTabButton(f, i, tab)
     end
+    local divider = f:CreateTexture(nil, "ARTWORK")
+    divider:SetColorTexture(1, 1, 1, 0.15)
+    divider:SetWidth(1)
+    divider:SetPoint("TOPLEFT", CONTENT_X - 6, -50)
+    divider:SetPoint("BOTTOMLEFT", CONTENT_X - 6, 52)
 
-    -- scrolling list
-    local scroll = CreateFrame("ScrollFrame", "ReportAnnouncerHistoryScroll", f, "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT", 20, -130)
-    scroll:SetPoint("BOTTOMRIGHT", -40, 46)
-    f.content = CreateFrame("Frame", nil, scroll)
-    f.content:SetSize(FRAME_W - 72, 1)
-    scroll:SetScrollChild(f.content)
+    -- pages
+    f.pages = {
+        personal = MakeListPage(f, "personal", "No reports yet."),
+        imported = MakeListPage(f, "imported",
+            "No imported lists.\nUse Import to add a list someone shared with you."),
+        stats = MakeStatsPage(f),
+    }
+    local options = CreateFrame("Frame", nil, f)
+    options:SetPoint("TOPLEFT", f, "TOPLEFT", CONTENT_X, -50)
+    options:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -22, 52)
+    if ns.BuildOptions then ns.BuildOptions(options) end
+    f.pages.options = options
 
-    f.empty = f:CreateFontString(nil, "OVERLAY", "GameFontDisable")
-    f.empty:SetPoint("CENTER", scroll, "CENTER")
-    f.empty:SetText("No reports yet.")
+    -- bottom bar
+    f.clear = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    f.clear:SetSize(100, 24)
+    f.clear:SetPoint("BOTTOMLEFT", 22, 16)
+    f.clear:SetText("Clear all")
+    f.clear:SetScript("OnClick", function() StaticPopup_Show("REPORTANNOUNCER_CLEAR") end)
 
-    f.count = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    f.count:SetPoint("BOTTOMLEFT", 132, 21)
+    f.export = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    f.export:SetSize(100, 24)
+    f.export:SetPoint("LEFT", f.clear, "RIGHT", 6, 0)
+    f.export:SetText("Export")
+    f.export:SetScript("OnClick", function() ns.ShowExport() end)
 
-    -- bottom row: destructive action on the left, Close on the right
-    local clear = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-    clear:SetSize(100, 24)
-    clear:SetPoint("BOTTOMLEFT", 22, 16)
-    clear:SetText("Clear all")
-    clear:SetScript("OnClick", function() StaticPopup_Show("REPORTANNOUNCER_CLEAR") end)
+    f.import = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    f.import:SetSize(100, 24)
+    f.import:SetText("Import")
+    f.import:SetScript("OnClick", function() ns.ShowImport() end)
 
     local closeBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
     closeBtn:SetSize(100, 24)
@@ -240,14 +453,8 @@ local function CreateWindow()
     closeBtn:SetText("Close")
     closeBtn:SetScript("OnClick", function() f:Hide() end)
 
-    local optBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-    optBtn:SetSize(100, 24)
-    optBtn:SetPoint("RIGHT", closeBtn, "LEFT", -8, 0)
-    optBtn:SetText("Options")
-    optBtn:SetScript("OnClick", function()
-        f:Hide()
-        if ns.OpenOptions then ns.OpenOptions() end
-    end)
+    f.count = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    f.count:SetPoint("RIGHT", closeBtn, "LEFT", -12, 0)
 
     f:SetScript("OnShow", ns.RefreshHistory)
     tinsert(UISpecialFrames, "ReportAnnouncerHistoryFrame") -- Esc closes it
@@ -255,17 +462,23 @@ local function CreateWindow()
     return f
 end
 
+-- Open the window (on a given tab). Not allowed during combat.
+function ns.ShowTab(key)
+    if InCombatLockdown() then
+        ns.Print("the window can't be opened during combat.")
+        return
+    end
+    if not win then win = CreateWindow() end
+    win.tab = key or win.tab
+    if win:IsShown() then ns.RefreshHistory() else win:Show() end
+end
+
 function ns.ToggleHistory()
     if win and win:IsShown() then
         win:Hide()
         return
     end
-    if InCombatLockdown() then
-        ns.Print("the history can't be opened during combat.")
-        return
-    end
-    if not win then win = CreateWindow() end
-    win:Show()
+    ns.ShowTab()
 end
 
 -- Hide the window (and its confirmation popup) as soon as combat starts.
