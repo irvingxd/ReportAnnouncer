@@ -207,6 +207,55 @@ local function SkinScroll(sf, t)
     end
 end
 
+-- checkboxes: small flat box with a filled square when checked
+local function CheckFill(b)
+    if b.raFill then b.raFill:SetShown(b:GetChecked() and true or false) end
+end
+
+local function SkinCheck(b, t)
+    if not b.raSkin then
+        local s = CreateFrame("Frame", nil, b, BackdropTemplateMixin and "BackdropTemplate" or nil)
+        s:SetSize(16, 16)
+        s:SetPoint("CENTER")
+        s:SetFrameLevel(math.max(b:GetFrameLevel() - 1, 0))
+        s.raSkinFrame = true
+        b.raSkin = s
+        b.raFill = s:CreateTexture(nil, "OVERLAY")
+        b.raFill:SetPoint("TOPLEFT", 3, -3)
+        b.raFill:SetPoint("BOTTOMRIGHT", -3, 3)
+        hooksecurefunc(b, "SetChecked", CheckFill)
+        b:HookScript("OnClick", CheckFill)
+        b:HookScript("OnEnter", function(self)
+            local c = Cur()
+            if c.flat and self.raSkin.SetBackdropBorderColor then self.raSkin:SetBackdropBorderColor(Unpack(c.btnHover)) end
+        end)
+        b:HookScript("OnLeave", function(self)
+            local c = Cur()
+            if c.flat and self.raSkin.SetBackdropBorderColor then self.raSkin:SetBackdropBorderColor(Unpack(c.btnBorder)) end
+        end)
+    end
+    if b.raTheme ~= Key() then
+        b.raTheme = Key()
+        local a = t.flat and 0 or 1
+        for _, r in ipairs({ b:GetRegions() }) do
+            if r:GetObjectType() == "Texture" then r:SetAlpha(a) end
+        end
+        for _, g in ipairs({ "GetNormalTexture", "GetPushedTexture", "GetHighlightTexture", "GetDisabledTexture",
+            "GetCheckedTexture", "GetDisabledCheckedTexture" }) do
+            local tx = b[g] and b[g](b)
+            if tx then tx:SetAlpha(a) end
+        end
+        b.raSkin:SetShown(t.flat)
+        if t.flat and b.raSkin.SetBackdrop then
+            b.raSkin:SetBackdrop({ bgFile = FLAT, edgeFile = FLAT, edgeSize = 1, insets = { left = 1, right = 1, top = 1, bottom = 1 } })
+            b.raSkin:SetBackdropColor(Unpack(t.boxBg))
+            b.raSkin:SetBackdropBorderColor(Unpack(t.btnBorder))
+            b.raFill:SetColorTexture(Unpack(t.accent))
+        end
+    end
+    CheckFill(b)
+end
+
 local ACCENT_FONTS = { "GameFontNormal", "GameFontNormalLarge", "GameFontNormalSmall" }
 
 local function Walk(frame, t)
@@ -225,6 +274,7 @@ local function Walk(frame, t)
             Walk(c, t)
             if c.raClose then SkinClose(c, t) end
             if c:GetObjectType() == "ScrollFrame" then SkinScroll(c, t) end
+            if c:GetObjectType() == "CheckButton" then SkinCheck(c, t) end
             if c:GetObjectType() == "Button" and c:GetFontString() and not c.raNoSkin then SkinButton(c, t) end
         end
     end
