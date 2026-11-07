@@ -170,7 +170,14 @@ local function SkinClose(b, t)
     end
 end
 
--- scrollbars: flat thumb, no arrow buttons
+-- scrollbars: flat thumb, no arrow buttons. only shown when there is something to scroll
+local function ScrollVis(sf, bar)
+    local on = sf:GetVerticalScrollRange() > 0
+    local thumb = bar:GetThumbTexture()
+    if thumb then thumb:SetShown(on) end
+    if bar.raTrack then bar.raTrack:SetShown(on and Cur().flat) end
+end
+
 local function SkinScroll(sf, t)
     local bar = sf.ScrollBar or (sf:GetName() and _G[sf:GetName() .. "ScrollBar"])
     if not bar or not bar.GetThumbTexture then return end
@@ -210,6 +217,11 @@ local function SkinScroll(sf, t)
         thumb:SetSize(18, 24)
         thumb:SetVertexColor(1, 1, 1)
     end
+    if not sf.raHooked then
+        sf.raHooked = true
+        sf:HookScript("OnScrollRangeChanged", function(self) ScrollVis(self, bar) end)
+    end
+    ScrollVis(sf, bar)
 end
 
 -- checkboxes: small flat box with a filled square when checked
