@@ -593,6 +593,8 @@ SlashCmdList["REPORTANNOUNCER"] = function(arg)
         if ns.ShowImport then ns.ShowImport() end
     elseif arg == "check" then
         ns.CheckGroupNow()
+    elseif arg:match("^debug") then
+        if ns.DebugCommand then ns.DebugCommand(arg:match("^debug%s*(.-)$")) end
     elseif arg == "minimap" then
         db.minimap.hide = not db.minimap.hide
         if ns.UpdateMinimapButton then ns.UpdateMinimapButton() end

@@ -60,22 +60,60 @@ local function Messages(kind)
     return msgs
 end
 
+-- debug log (/ra debug). keeps the last lines, saved with the other settings.
+-- counters always run, the log only when it is switched on
+local sentCount, recvCount = 0, 0
+local LOG_MAX = 300
+
+local function Log(line)
+    local db = ns.InitDB()
+    if not db.debug then return end
+    local log = db.debugLog
+    if not log then log = {}; db.debugLog = log end
+    log[#log + 1] = date("%H:%M:%S") .. " " .. line
+    if #log > LOG_MAX then table.remove(log, 1) end
+end
+
 -- text can be one message or a list of them
 local function Send(text, channel, target)
     if not SendMsg then return end
-    if type(text) == "table" then
-        for _, t in ipairs(text) do pcall(SendMsg, PREFIX, t, channel, target) end
-    else
-        pcall(SendMsg, PREFIX, text, channel, target)
+    for _, t in ipairs(type(text) == "table" and text or { text }) do
+        sentCount = sentCount + 1
+        Log("send " .. tostring(channel) .. (target and (" " .. tostring(target)) or "") .. " " .. #t .. "b " .. t:sub(1, 40))
+        pcall(SendMsg, PREFIX, t, channel, target)
     end
 end
 
 local function SendBN(text, gameAccountID)
     if not (BNSendGameData and gameAccountID) then return end
-    if type(text) == "table" then
-        for _, t in ipairs(text) do pcall(BNSendGameData, gameAccountID, PREFIX, t) end
+    for _, t in ipairs(type(text) == "table" and text or { text }) do
+        sentCount = sentCount + 1
+        Log("send BNET " .. #t .. "b " .. t:sub(1, 40))
+        pcall(BNSendGameData, gameAccountID, PREFIX, t)
+    end
+end
+
+-- /ra debug [on|off|show [n]|clear|status]
+function ns.DebugCommand(arg)
+    local db = ns.InitDB()
+    arg = strlower(strtrim(arg or ""))
+    if arg == "off" then
+        db.debug = nil
+        ns.Print("debug log off.")
+    elseif arg == "clear" then
+        db.debugLog = nil
+        ns.Print("debug log cleared.")
+    elseif arg:match("^show") or arg:match("^log") then
+        local log = db.debugLog or {}
+        local n = tonumber(arg:match("(%d+)")) or 25
+        ns.Print("last " .. math.min(n, #log) .. " of " .. #log .. " lines:")
+        for i = math.max(1, #log - n + 1), #log do print(log[i]) end
+    elseif arg == "status" then
+        ns.Print("sent " .. sentCount .. ", received " .. recvCount .. " addon messages this session. log is "
+            .. (db.debug and "on" or "off") .. ", " .. #(db.debugLog or {}) .. " lines.")
     else
-        pcall(BNSendGameData, gameAccountID, PREFIX, text)
+        db.debug = true
+        ns.Print("debug log on. /ra debug show  |  status  |  clear  |  off")
     end
 end
 
@@ -243,14 +281,19 @@ f:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     elseif event == "CHAT_MSG_ADDON" then
         -- prefix, text, channel, sender
         if a1 == PREFIX and a4 then
+            recvCount = recvCount + 1
+            Log("recv " .. tostring(a3) .. " from " .. tostring(a4) .. " " .. (a2 or ""):sub(1, 40))
             OnMessage(a2 or "", function(t) Send(t, "WHISPER", a4) end)
         end
     elseif event == "BN_CHAT_MSG_ADDON" then
         -- prefix, text, channel, senderID (a Battle.net game account)
         if a1 == PREFIX and a4 then
+            recvCount = recvCount + 1
+            Log("recv BNET " .. (a2 or ""):sub(1, 40))
             OnMessage(a2 or "", function(t) SendBN(t, a4) end)
         end
     elseif event == "GROUP_ROSTER_UPDATE" then
+        Log("event GROUP_ROSTER_UPDATE")
         -- wait a moment, the new member needs to be in the group first
         if C_Timer then C_Timer.After(2, BroadcastGroup) else BroadcastGroup() end
     else
