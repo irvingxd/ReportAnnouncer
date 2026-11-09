@@ -409,6 +409,16 @@ local function OnMessage(text, reply, big, contact)
     if ns.RefreshHistory then ns.RefreshHistory() end
 end
 
+-- how many reports does this player have? (nil if they are not a known addon user)
+-- used for the mouseover tooltip
+function ns.PeerReportCount(name)
+    if not Enabled() or not name or name == "" then return nil end
+    local want = BaseName(name)
+    for _, p in pairs(ns.InitDB().peers) do
+        if p.w and BaseName(p.w) == want then return p.n end
+    end
+end
+
 -- returns users seen and total reports (yours included)
 function ns.CommunityTally()
     local peers = ns.InitDB().peers

@@ -442,6 +442,15 @@ local function OnUnitTooltip(tt, dataGuid)
     if IsSecret(name) then name = nil end
 
     AddReportLines(tt, guid, name)
+
+    -- a player who also has the addon: show how many reports they have
+    if InitDB().tooltip and ns.PeerReportCount and name and not UnitIsUnit(unit or "none", "player") then
+        local n = ns.PeerReportCount(name)
+        if n then
+            tt:AddLine("|cff66ccffReport Announcer:|r " .. n .. (n == 1 and " report" or " reports"))
+            tt:Show()
+        end
+    end
 end
 
 local function HookTooltips()
