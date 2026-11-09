@@ -15,7 +15,9 @@ local Register = (C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix) or Regis
 local SendMsg = (C_ChatInfo and C_ChatInfo.SendAddonMessage) or SendAddonMessage
 
 local lastSent, lastFriends, lastGroup = 0, 0, 0
-local GROUP_GAP = 5 -- group changes can send again quickly
+local GROUP_GAP = 15 -- group changes can send again fairly quickly
+local SEND_INTERVAL = 2 -- seconds between two outgoing messages
+local MAX_QUEUE = 60
 
 local answered = {} -- when we last replied to each id
 
@@ -74,24 +76,58 @@ local function Log(line)
     if #log > LOG_MAX then table.remove(log, 1) end
 end
 
+-- nothing goes out right away: messages wait in a line and one is sent every
+-- SEND_INTERVAL seconds, so there is never a burst
+local queue = {}
+
+local function Enqueue(item)
+    for _, q in ipairs(queue) do
+        if q.t == item.t and q.ch == item.ch and q.tg == item.tg and q.bn == item.bn then return end
+    end
+    if #queue >= MAX_QUEUE then return end
+    queue[#queue + 1] = item
+end
+
 -- text can be one message or a list of them
 local function Send(text, channel, target)
     if not SendMsg then return end
     for _, t in ipairs(type(text) == "table" and text or { text }) do
-        sentCount = sentCount + 1
-        Log("send " .. tostring(channel) .. (target and (" " .. tostring(target)) or "") .. " " .. #t .. "b " .. t:sub(1, 40))
-        pcall(SendMsg, PREFIX, t, channel, target)
+        Enqueue({ t = t, ch = channel, tg = target })
     end
 end
 
 local function SendBN(text, gameAccountID)
     if not (BNSendGameData and gameAccountID) then return end
     for _, t in ipairs(type(text) == "table" and text or { text }) do
-        sentCount = sentCount + 1
-        Log("send BNET " .. #t .. "b " .. t:sub(1, 40))
-        pcall(BNSendGameData, gameAccountID, PREFIX, t)
+        Enqueue({ t = t, bn = gameAccountID })
     end
 end
+
+local function SendNext()
+    local item = table.remove(queue, 1)
+    if not item then return end
+    sentCount = sentCount + 1
+    if item.bn then
+        Log("send BNET " .. #item.t .. "b " .. item.t:sub(1, 40))
+        pcall(BNSendGameData, item.bn, PREFIX, item.t)
+    else
+        Log("send " .. tostring(item.ch) .. (item.tg and (" " .. tostring(item.tg)) or "")
+            .. " " .. #item.t .. "b " .. item.t:sub(1, 40))
+        pcall(SendMsg, PREFIX, item.t, item.ch, item.tg)
+    end
+end
+
+local waited = SEND_INTERVAL
+local pump = CreateFrame("Frame")
+pump:SetScript("OnUpdate", function(_, dt)
+    waited = math.min(waited + dt, SEND_INTERVAL)
+    if #queue == 0 then return end
+    if not ns.InitDB().shareCount then queue = {}; return end -- switched off, drop the rest
+    if waited >= SEND_INTERVAL then
+        waited = 0
+        SendNext()
+    end
+end)
 
 -- /ra debug [on|off|show [n]|clear|status]
 function ns.DebugCommand(arg)
@@ -109,7 +145,7 @@ function ns.DebugCommand(arg)
         ns.Print("last " .. math.min(n, #log) .. " of " .. #log .. " lines:")
         for i = math.max(1, #log - n + 1), #log do print(log[i]) end
     elseif arg == "status" then
-        ns.Print("sent " .. sentCount .. ", received " .. recvCount .. " addon messages this session. log is "
+        ns.Print("sent " .. sentCount .. ", received " .. recvCount .. ", waiting to send " .. #queue .. " (addon messages, this session). log is "
             .. (db.debug and "on" or "off") .. ", " .. #(db.debugLog or {}) .. " lines.")
     else
         db.debug = true
