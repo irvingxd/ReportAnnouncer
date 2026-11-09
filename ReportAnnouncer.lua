@@ -451,7 +451,7 @@ local function OnUnitTooltip(tt, dataGuid)
             if top and #top > 0 then
                 local parts = {}
                 for _, item in ipairs(top) do parts[#parts + 1] = item.label .. " (" .. item.n .. ")" end
-                tt:AddLine("|cff66ccffMost common:|r " .. table.concat(parts, ", "), 1, 1, 1, true)
+                tt:AddLine("|cff66ccffMost common:|r " .. table.concat(parts, ", "))
             end
             tt:Show()
         end
