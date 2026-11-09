@@ -442,6 +442,20 @@ local function OnUnitTooltip(tt, dataGuid)
     if IsSecret(name) then name = nil end
 
     AddReportLines(tt, guid, name)
+
+    -- a player who also has the addon: show how many reports they have
+    if InitDB().tooltip and ns.PeerReportCount and name then
+        local n, top = ns.PeerReportCount(name, unit and UnitIsUnit(unit, "player"))
+        if n then
+            tt:AddLine("|cff66ccffPeople reported:|r " .. n)
+            if top and #top > 0 then
+                local parts = {}
+                for _, item in ipairs(top) do parts[#parts + 1] = item.label .. " (" .. item.n .. ")" end
+                tt:AddLine("|cff66ccffMost common:|r " .. table.concat(parts, ", "))
+            end
+            tt:Show()
+        end
+    end
 end
 
 local function HookTooltips()
@@ -593,6 +607,12 @@ SlashCmdList["REPORTANNOUNCER"] = function(arg)
         if ns.ShowImport then ns.ShowImport() end
     elseif arg == "check" then
         ns.CheckGroupNow()
+    elseif arg:match("^hello") then
+        if ns.SayHello then ns.SayHello(arg:match("^hello%s*(.-)$")) end
+    elseif arg == "show debug" then
+        if ns.DebugCommand then ns.DebugCommand("copy") end
+    elseif arg:match("^debug") then
+        if ns.DebugCommand then ns.DebugCommand(arg:match("^debug%s*(.-)$")) end
     elseif arg == "minimap" then
         db.minimap.hide = not db.minimap.hide
         if ns.UpdateMinimapButton then ns.UpdateMinimapButton() end
