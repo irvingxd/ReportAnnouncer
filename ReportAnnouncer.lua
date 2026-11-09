@@ -444,8 +444,8 @@ local function OnUnitTooltip(tt, dataGuid)
     AddReportLines(tt, guid, name)
 
     -- a player who also has the addon: show how many reports they have
-    if InitDB().tooltip and ns.PeerReportCount and name and not UnitIsUnit(unit or "none", "player") then
-        local n = ns.PeerReportCount(name)
+    if InitDB().tooltip and ns.PeerReportCount and name then
+        local n = ns.PeerReportCount(name, unit and UnitIsUnit(unit, "player"))
         if n then
             tt:AddLine("|cff66ccffReport Announcer:|r " .. n .. (n == 1 and " report" or " reports"))
             tt:Show()

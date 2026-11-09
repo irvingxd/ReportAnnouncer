@@ -411,7 +411,8 @@ end
 
 -- how many reports does this player have? (nil if they are not a known addon user)
 -- used for the mouseover tooltip
-function ns.PeerReportCount(name)
+function ns.PeerReportCount(name, isSelf)
+    if isSelf then return OwnCount() end
     if not Enabled() or not name or name == "" then return nil end
     local want = BaseName(name)
     for _, p in pairs(ns.InitDB().peers) do
