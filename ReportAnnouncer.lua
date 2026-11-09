@@ -445,9 +445,14 @@ local function OnUnitTooltip(tt, dataGuid)
 
     -- a player who also has the addon: show how many reports they have
     if InitDB().tooltip and ns.PeerReportCount and name then
-        local n = ns.PeerReportCount(name, unit and UnitIsUnit(unit, "player"))
+        local n, top = ns.PeerReportCount(name, unit and UnitIsUnit(unit, "player"))
         if n then
-            tt:AddLine("|cff66ccffReport Announcer:|r " .. n .. (n == 1 and " report" or " reports"))
+            tt:AddLine("|cff66ccffPeople reported:|r " .. n)
+            if top and #top > 0 then
+                local parts = {}
+                for _, item in ipairs(top) do parts[#parts + 1] = item.label .. " (" .. item.n .. ")" end
+                tt:AddLine("|cff66ccffMost common:|r " .. table.concat(parts, ", "), 1, 1, 1, true)
+            end
             tt:Show()
         end
     end
