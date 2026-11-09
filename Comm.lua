@@ -1,25 +1,30 @@
--- opt-in community tally. only a number (how many reports you have, no names) is
--- sent to addon users in your guild, group, a channel and friends.
--- counts are self reported, can't be checked.
+-- opt-in community tally. only numbers (how many reports you have, and how often
+-- each category / reason / zone, no names) go to addon users in your guild, group,
+-- a channel and friends. counts are self reported, can't be checked.
+--
+-- kept quiet on purpose:
+-- * we only say hello at login, when someone joins the group, and when our own
+--   numbers changed (checked every 30s, at most once per 2 minutes)
+-- * everything leaves through a slow queue, one message every 2 seconds
+-- * only new people get an answer, and in a big guild only a few answer, late
 local ADDON, ns = ...
 
 local PREFIX = "RepAnn"
 local EXPIRE = 30 * 86400 -- drop peers after 30 days
 local MAX_PEERS = 500
 local MAX_COUNT = 100000
-local SEND_GAP = 60 -- seconds between broadcasts
-local FRIEND_GAP = 600 -- seconds between friend broadcasts
+local CHANGE_GAP = 120 -- numbers changed: wait at least this long between broadcasts
 local MAX_FRIENDS = 60
+local REPLY_TARGET = 8 -- in guild / channels about this many people answer a new hello
+local GROUP_BUDGET = 70 -- characters for each of categories, reasons, zones
 
 local Register = (C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix) or RegisterAddonMessagePrefix
 local SendMsg = (C_ChatInfo and C_ChatInfo.SendAddonMessage) or SendAddonMessage
 
-local lastSent, lastFriends, lastGroup = 0, 0, 0
+local lastSent, lastGroup, lastSig = 0, 0, nil
 local GROUP_GAP = 15 -- group changes can send again fairly quickly
 local SEND_INTERVAL = 2 -- seconds between two outgoing messages
 local MAX_QUEUE = 60
-
-local answered = {} -- when we last replied to each id
 
 local function Enabled() return ns.InitDB().shareCount end
 
@@ -38,27 +43,27 @@ local function Message(kind)
     return kind .. "1:" .. OwnCount() .. ":" .. OwnId()
 end
 
--- the count, plus how often each category / reason / zone was reported (no names).
--- one short message each, the top ones only (messages are limited to 255 bytes)
+-- two messages: the count, and how often each category / reason / zone was
+-- reported (top ones only, a message is limited to 255 bytes)
+-- S2:<id>:c=Name=5;Name=2|r=Name=3|z=Name=4
 local KINDS = { "c", "r", "z" }
 local function Messages(kind)
     local msgs = { Message(kind) }
     local counts = { ns.OwnCounts() }
+    local groups = {}
     for i, k in ipairs(KINDS) do
         local parts, len = {}, 0
         for _, item in ipairs(ns.SortedTop(counts[i], 12)) do
-            local name = (item.label:gsub("[;=:|%c]", "")):sub(1, 40)
+            local name = (item.label:gsub("[;=:|,%c]", "")):sub(1, 40)
             local piece = name .. "=" .. item.n
-            if name ~= "" then
-                if len + #piece + 1 > 200 then break end
+            if name ~= "" and len + #piece + 1 <= GROUP_BUDGET then
                 parts[#parts + 1] = piece
                 len = len + #piece + 1
             end
         end
-        if #parts > 0 then
-            msgs[#msgs + 1] = "S1:" .. OwnId() .. ":" .. k .. ":" .. table.concat(parts, ";")
-        end
+        if #parts > 0 then groups[#groups + 1] = k .. "=" .. table.concat(parts, ";") end
     end
+    if #groups > 0 then msgs[#msgs + 1] = "S2:" .. OwnId() .. ":" .. table.concat(groups, "|") end
     return msgs
 end
 
@@ -245,7 +250,7 @@ local function EachFriend(fnWoW, fnBN)
     end
 end
 
--- someone joined or left: say hello to the group again (short wait, not 60s)
+-- someone joined or left: say hello to the group again
 local function BroadcastGroup()
     if not Enabled() or not SendMsg then return end
     local now = time()
@@ -259,13 +264,12 @@ local function BroadcastGroup()
     end
 end
 
--- tell guild, group, channel and friends we're here
-function ns.BroadcastCount(force)
+-- tell guild, group, channel and friends we're here (login, or our numbers changed)
+function ns.BroadcastCount()
     if not Enabled() or not SendMsg then return end
-    local now = time()
-    if not force and now - lastSent < SEND_GAP then return end
-    lastSent = now
+    lastSent = time()
     local msg = Messages("H")
+    lastSig = table.concat(msg, "\n")
 
     if IsInGuild and IsInGuild() then Send(msg, "GUILD") end
     if IsInRaid and IsInRaid() then
@@ -280,11 +284,16 @@ function ns.BroadcastCount(force)
         if id and id > 0 then Send(msg, "CHANNEL", id) end
     end
 
-    if force or now - lastFriends >= FRIEND_GAP then
-        lastFriends = now
-        EachFriend(function(name) Send(msg, "WHISPER", name) end,
-                   function(gid) SendBN(msg, gid) end)
-    end
+    EachFriend(function(name) Send(msg, "WHISPER", name) end,
+               function(gid) SendBN(msg, gid) end)
+end
+
+-- did our numbers change since the last broadcast? (called every 30 seconds)
+local function CheckChanged()
+    if not Enabled() or not SendMsg then return end
+    if table.concat(Messages("H"), "\n") == lastSig then return end
+    if time() - lastSent < CHANGE_GAP then return end -- try again next time
+    ns.BroadcastCount()
 end
 
 local function Prune(peers)
@@ -295,29 +304,52 @@ local function Prune(peers)
     return n
 end
 
--- how often a peer reported each category / reason / zone
-local function OnStats(id, kind, body)
-    if #id > 16 or id == OwnId() then return end
-    local peer = ns.InitDB().peers[id]
-    if not peer then return end -- their hello comes first
+-- "Name=5;Name=2" -> { Name = 5, Name = 2 }, anything odd is dropped
+local function ParseItems(body)
     local t, n = {}, 0
     for item in body:gmatch("[^;]+") do
-        local name, v = item:match("^([^=]+)=(%d+)$")
+        local name, v = item:match("^(.+)=(%d+)$")
         v = tonumber(v)
         if name and v and v <= MAX_COUNT and #name <= 40 and n < 12 then
             t[(name:gsub("%c", ""):gsub("|", "||"))] = v
             n = n + 1
         end
     end
+    return t
+end
+
+-- how often a peer reported each category / reason / zone
+-- (old S1 messages, one kind each, are still understood)
+local function OnStats(id, kind, body)
+    if #id > 16 or id == OwnId() then return end
+    local peer = ns.InitDB().peers[id]
+    if not peer then return end -- their hello comes first
     peer.s = peer.s or {}
-    peer.s[kind] = t
+    peer.s[kind] = ParseItems(body)
     peer.t = time()
     if ns.RefreshHistory then ns.RefreshHistory() end
 end
 
--- reply goes back the same way the message came
-local function OnMessage(text, reply)
+local function OnStats2(id, body)
+    if #id > 16 or id == OwnId() then return end
+    local peer = ns.InitDB().peers[id]
+    if not peer then return end
+    local s = {}
+    for group in body:gmatch("[^|]+") do
+        local kind, items = group:match("^([crz])=(.*)$")
+        if kind then s[kind] = ParseItems(items) end
+    end
+    peer.s = s
+    peer.t = time()
+    if ns.RefreshHistory then ns.RefreshHistory() end
+end
+
+-- reply goes back the same way the message came. big = guild or channel:
+-- there only a few people answer, and a bit later
+local function OnMessage(text, reply, big)
     if not Enabled() then return end
+    local sid2, sbody2 = text:match("^S2:(%x+):(.+)$")
+    if sid2 then OnStats2(sid2, sbody2) return end
     local sid, skind, sbody = text:match("^S1:(%x+):([crz]):(.+)$")
     if sid then OnStats(sid, skind, sbody) return end
     local kind, count, id = text:match("^([HR])1:(%d+):(%x+)$")
@@ -326,15 +358,18 @@ local function OnMessage(text, reply)
     if id == OwnId() then return end
 
     local peers = ns.InitDB().peers
-    if not peers[id] and Prune(peers) >= MAX_PEERS then return end
+    local known = Prune(peers)
+    if not peers[id] and known >= MAX_PEERS then return end
     local isNew = peers[id] == nil
     peers[id] = { n = count, t = time(), s = peers[id] and peers[id].s }
 
-    -- answer a hello we haven't answered lately (replies never get answered, no loops)
-    local now = time()
-    if kind == "H" and reply and (isNew or now - (answered[id] or 0) > 30) then
-        answered[id] = now
-        reply(Messages("R"))
+    -- answer a new person's hello (replies never get answered, no loops)
+    if kind == "H" and reply and isNew then
+        local chance = big and math.min(1, REPLY_TARGET / math.max(1, known)) or 1
+        if math.random() <= chance then
+            local function Answer() if Enabled() then reply(Messages("R")) end end
+            if big and C_Timer then C_Timer.After(math.random(1, 20), Answer) else Answer() end
+        end
     end
     if ns.RefreshHistory then ns.RefreshHistory() end
 end
@@ -374,7 +409,7 @@ function ns.SetShareChannel(name)
         ns.Print("community channel cleared.")
     else
         ns.Print("community tally will also use the channel \"" .. name .. "\" (you must be in it).")
-        ns.BroadcastCount(true)
+        ns.BroadcastCount()
     end
 end
 
@@ -383,17 +418,19 @@ f:RegisterEvent("PLAYER_LOGIN")
 f:RegisterEvent("CHAT_MSG_ADDON")
 f:RegisterEvent("BN_CHAT_MSG_ADDON")
 f:RegisterEvent("GROUP_ROSTER_UPDATE")
-f:RegisterEvent("GUILD_ROSTER_UPDATE")
 f:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     if event == "PLAYER_LOGIN" then
         if Register then pcall(Register, PREFIX) end
-        if C_Timer then C_Timer.After(10, function() ns.BroadcastCount(true) end) end
+        if C_Timer then
+            C_Timer.After(10, function() ns.BroadcastCount() end)
+            if C_Timer.NewTicker then C_Timer.NewTicker(30, CheckChanged) end
+        end
     elseif event == "CHAT_MSG_ADDON" then
         -- prefix, text, channel, sender
         if a1 == PREFIX and a4 then
             recvCount = recvCount + 1
             Log("recv " .. tostring(a3) .. " from " .. tostring(a4) .. " " .. (a2 or ""):sub(1, 40))
-            OnMessage(a2 or "", function(t) Send(t, "WHISPER", a4) end)
+            OnMessage(a2 or "", function(t) Send(t, "WHISPER", a4) end, a3 == "GUILD" or a3 == "CHANNEL")
         end
     elseif event == "BN_CHAT_MSG_ADDON" then
         -- prefix, text, channel, senderID (a Battle.net game account)
@@ -406,7 +443,5 @@ f:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
         Log("event GROUP_ROSTER_UPDATE")
         -- wait a moment, the new member needs to be in the group first
         if C_Timer then C_Timer.After(2, BroadcastGroup) else BroadcastGroup() end
-    else
-        ns.BroadcastCount(false)
     end
 end)
