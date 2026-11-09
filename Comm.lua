@@ -411,16 +411,16 @@ end
 
 -- how many reports does this player have? (nil if they are not a known addon user)
 -- used for the mouseover tooltip
--- second value: their most common categories (top 3), if we know them
+-- second value: their most common categories (top 1), if we know them
 function ns.PeerReportCount(name, isSelf)
     if isSelf then
-        return OwnCount(), ns.SortedTop((ns.OwnCounts()), 3)
+        return OwnCount(), ns.SortedTop((ns.OwnCounts()), 1)
     end
     if not Enabled() or not name or name == "" then return nil end
     local want = BaseName(name)
     for _, p in pairs(ns.InitDB().peers) do
         if p.w and BaseName(p.w) == want then
-            return p.n, (p.s and p.s.c) and ns.SortedTop(p.s.c, 3) or {}
+            return p.n, (p.s and p.s.c) and ns.SortedTop(p.s.c, 1) or {}
         end
     end
 end
