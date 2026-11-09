@@ -2,10 +2,8 @@
 
 ## 2.1.0
 
-- Mouseover tooltip shows how many reports another addon user has, and their most common category (also on yourself)
-- Fixes disconnects: the community count is sent slowly, much less often, and only to friends who already answered
-- New: /reportannouncer hello <name> finds a friend who has the addon
-- New: /reportannouncer debug copy shows a window with debug info to copy
+- Mouseover tally added
+- Minor fixes to performance
 
 ## 2.0.1
 
