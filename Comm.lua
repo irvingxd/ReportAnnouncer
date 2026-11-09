@@ -129,7 +129,79 @@ pump:SetScript("OnUpdate", function(_, dt)
     end
 end)
 
--- /ra debug [on|off|show [n]|clear|status]
+-- all the debug info as one text, to copy and paste
+function ns.DebugText(n)
+    local db = ns.InitDB()
+    local log = db.debugLog or {}
+    local meta = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
+    local ver = meta and meta(ADDON, "Version") or "?"
+    local lines = {
+        "ReportAnnouncer " .. tostring(ver) .. " debug, " .. date("%Y-%m-%d %H:%M:%S"),
+        "tally " .. (db.shareCount and "on" or "off") .. ", log " .. (db.debug and "on" or "off")
+            .. ", sent " .. sentCount .. ", received " .. recvCount .. ", waiting " .. #queue,
+        "guild " .. ((IsInGuild and IsInGuild()) and "yes" or "no")
+            .. ", group " .. ((IsInGroup and IsInGroup()) and (GetNumGroupMembers and GetNumGroupMembers() or "?") or "no")
+            .. ", peers " .. (function() local c = 0 for _ in pairs(db.peers or {}) do c = c + 1 end return c end)(),
+        "last " .. math.min(n, #log) .. " of " .. #log .. " log lines:",
+    }
+    for i = math.max(1, #log - n + 1), #log do lines[#lines + 1] = log[i] end
+    return table.concat(lines, "\n")
+end
+
+-- a window with the text, Ctrl+A then Ctrl+C
+local debugWin
+function ns.ShowDebugCopy()
+    if not debugWin then
+        local d = CreateFrame("Frame", "ReportAnnouncerDebugDialog", UIParent,
+            BackdropTemplateMixin and "BackdropTemplate" or nil)
+        d:SetSize(560, 360)
+        d:SetPoint("CENTER")
+        d:SetFrameStrata("DIALOG")
+        d:EnableMouse(true)
+        d:SetMovable(true)
+        d:RegisterForDrag("LeftButton")
+        d:SetScript("OnDragStart", d.StartMoving)
+        d:SetScript("OnDragStop", d.StopMovingOrSizing)
+        if ns.DialogBackdrop then ns.DialogBackdrop(d) end
+
+        d.title = d:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+        d.title:SetPoint("TOP", 0, -16)
+        d.title:SetText("Debug info")
+
+        local scroll = CreateFrame("ScrollFrame", "ReportAnnouncerDebugScroll", d, "UIPanelScrollFrameTemplate")
+        scroll:SetPoint("TOPLEFT", 22, -46)
+        scroll:SetPoint("BOTTOMRIGHT", -40, 52)
+        d.edit = CreateFrame("EditBox", nil, scroll)
+        d.edit:SetMultiLine(true)
+        d.edit:SetFontObject(ChatFontNormal)
+        d.edit:SetWidth(490)
+        d.edit:SetAutoFocus(false)
+        d.edit:SetMaxLetters(0)
+        d.edit:SetScript("OnEscapePressed", function() d:Hide() end)
+        scroll:SetScrollChild(d.edit)
+
+        local sel = CreateFrame("Button", nil, d, "UIPanelButtonTemplate")
+        sel:SetSize(100, 24)
+        sel:SetPoint("BOTTOMRIGHT", -126, 18)
+        sel:SetText("Select all")
+        sel:SetScript("OnClick", function() d.edit:SetFocus(); d.edit:HighlightText() end)
+        local close = CreateFrame("Button", nil, d, "UIPanelButtonTemplate")
+        close:SetSize(100, 24)
+        close:SetPoint("BOTTOMRIGHT", -22, 18)
+        close:SetText("Close")
+        close:SetScript("OnClick", function() d:Hide() end)
+
+        tinsert(UISpecialFrames, "ReportAnnouncerDebugDialog")
+        debugWin = d
+        if ns.ApplyTheme then ns.ApplyTheme() end
+    end
+    debugWin.edit:SetText(ns.DebugText(100))
+    debugWin:Show()
+    debugWin.edit:SetFocus()
+    debugWin.edit:HighlightText()
+end
+
+-- /ra debug [on|off|show [n]|copy|clear|status]
 function ns.DebugCommand(arg)
     local db = ns.InitDB()
     arg = strlower(strtrim(arg or ""))
@@ -144,12 +216,14 @@ function ns.DebugCommand(arg)
         local n = tonumber(arg:match("(%d+)")) or 25
         ns.Print("last " .. math.min(n, #log) .. " of " .. #log .. " lines:")
         for i = math.max(1, #log - n + 1), #log do print(log[i]) end
+    elseif arg == "copy" then
+        ns.ShowDebugCopy()
     elseif arg == "status" then
         ns.Print("sent " .. sentCount .. ", received " .. recvCount .. ", waiting to send " .. #queue .. " (addon messages, this session). log is "
             .. (db.debug and "on" or "off") .. ", " .. #(db.debugLog or {}) .. " lines.")
     else
         db.debug = true
-        ns.Print("debug log on. /ra debug show  |  status  |  clear  |  off")
+        ns.Print("debug log on. /ra debug copy  |  show  |  status  |  clear  |  off")
     end
 end
 
