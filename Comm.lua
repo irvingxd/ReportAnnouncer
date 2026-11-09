@@ -232,12 +232,25 @@ function ns.DebugCommand(arg)
     end
 end
 
+-- only friends we already know have the addon (they answered us before).
+-- asking everyone on the friends list would be a lot of useless whispers.
+-- to find a new friend: /reportannouncer hello <name>
+local function BaseName(name)
+    return strlower((name:match("^[^-]+")) or name)
+end
+
 local function EachFriend(fnWoW, fnBN)
+    local names, bns = {}, {}
+    for _, p in pairs(ns.InitDB().peers) do
+        if p.w then names[BaseName(p.w)] = true end
+        if p.bn then bns[p.bn] = true end
+    end
+    if next(names) == nil and next(bns) == nil then return end
     if C_FriendList and C_FriendList.GetNumFriends then
         local n = math.min(C_FriendList.GetNumFriends() or 0, MAX_FRIENDS)
         for i = 1, n do
             local info = C_FriendList.GetFriendInfoByIndex(i)
-            if info and info.connected and info.name then fnWoW(info.name) end
+            if info and info.connected and info.name and names[BaseName(info.name)] then fnWoW(info.name) end
         end
     end
     if C_BattleNet and C_BattleNet.GetFriendAccountInfo and BNGetNumFriends then
@@ -245,7 +258,9 @@ local function EachFriend(fnWoW, fnBN)
         for i = 1, n do
             local acc = C_BattleNet.GetFriendAccountInfo(i)
             local g = acc and acc.gameAccountInfo
-            if g and g.isOnline and g.clientProgram == "WoW" and g.gameAccountID then fnBN(g.gameAccountID) end
+            if g and g.isOnline and g.clientProgram == "WoW" and g.gameAccountID and bns[g.gameAccountID] then
+                fnBN(g.gameAccountID)
+            end
         end
     end
 end
@@ -286,6 +301,21 @@ function ns.BroadcastCount()
 
     EachFriend(function(name) Send(msg, "WHISPER", name) end,
                function(gid) SendBN(msg, gid) end)
+end
+
+-- /reportannouncer hello <name>: ask one player if they have the addon
+function ns.SayHello(name)
+    name = strtrim(name or "")
+    if name == "" then
+        ns.Print("usage: /reportannouncer hello <player name>")
+        return
+    end
+    if not Enabled() then
+        ns.Print("turn the community tally on first (Options).")
+        return
+    end
+    Send(Messages("H"), "WHISPER", name)
+    ns.Print("hello sent to " .. name .. ". if they have the addon, they answer in a few seconds.")
 end
 
 -- did our numbers change since the last broadcast? (called every 30 seconds)
@@ -346,7 +376,7 @@ end
 
 -- reply goes back the same way the message came. big = guild or channel:
 -- there only a few people answer, and a bit later
-local function OnMessage(text, reply, big)
+local function OnMessage(text, reply, big, contact)
     if not Enabled() then return end
     local sid2, sbody2 = text:match("^S2:(%x+):(.+)$")
     if sid2 then OnStats2(sid2, sbody2) return end
@@ -361,7 +391,12 @@ local function OnMessage(text, reply, big)
     local known = Prune(peers)
     if not peers[id] and known >= MAX_PEERS then return end
     local isNew = peers[id] == nil
-    peers[id] = { n = count, t = time(), s = peers[id] and peers[id].s }
+    local old = peers[id]
+    peers[id] = {
+        n = count, t = time(), s = old and old.s,
+        w = (contact and contact.w) or (old and old.w), -- how to reach them again
+        bn = (contact and contact.bn) or (old and old.bn),
+    }
 
     -- answer a new person's hello (replies never get answered, no loops)
     if kind == "H" and reply and isNew then
@@ -430,14 +465,14 @@ f:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
         if a1 == PREFIX and a4 then
             recvCount = recvCount + 1
             Log("recv " .. tostring(a3) .. " from " .. tostring(a4) .. " " .. (a2 or ""):sub(1, 40))
-            OnMessage(a2 or "", function(t) Send(t, "WHISPER", a4) end, a3 == "GUILD" or a3 == "CHANNEL")
+            OnMessage(a2 or "", function(t) Send(t, "WHISPER", a4) end, a3 == "GUILD" or a3 == "CHANNEL", { w = a4 })
         end
     elseif event == "BN_CHAT_MSG_ADDON" then
         -- prefix, text, channel, senderID (a Battle.net game account)
         if a1 == PREFIX and a4 then
             recvCount = recvCount + 1
             Log("recv BNET " .. (a2 or ""):sub(1, 40))
-            OnMessage(a2 or "", function(t) SendBN(t, a4) end)
+            OnMessage(a2 or "", function(t) SendBN(t, a4) end, false, { bn = a4 })
         end
     elseif event == "GROUP_ROSTER_UPDATE" then
         Log("event GROUP_ROSTER_UPDATE")
