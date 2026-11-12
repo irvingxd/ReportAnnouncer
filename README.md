@@ -17,7 +17,7 @@ that share it (including Classic Forever).
 - **Community tally (opt-in):** guild, group, one chosen channel and friends (character + Battle.net) who run the addon share just a report count (no names); the total shows in Statistics.
 - **Statistics tab:** what people get reported for, reasons, zones and repeat offenders.
 - **Side tabs:** Personal List, Imported Lists, Statistics, Options.
-- **Custom messages:** in the Messages tab, edit the report message and the group callout, and add more variants with **+** (one is picked at random). Variables: `{name}`, `{category}`, `{reason}`, `{details}`, `{zone}`, `{date}`; empty variables drop their own words.
+- **Custom messages:** in the Messages tab, edit the report message and the group callout, and add more variants with **+** (one is picked at random). Variables: `{name}`, `{category}`, `{reason}`, `{details}`, `{zone}`, `{date}`; empty variables drop their own words. **Presets** (Default, OwO, Gen Alpha) fill either section with a ready-made set you can still edit.
 - **Themes:** Classic or Vibecoded look for the window (Options tab).
 - **Minimap button** that opens your report history: name, category and reasons, your
   details, the zone (including sub-zone) and the date.

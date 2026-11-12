@@ -22,6 +22,42 @@ ns.DEFAULT_CALLOUTS = {
     "Heads up: {name} was previously reported by me for {category}, the reason: {reason}. Details: {details}",
     "FYI, I reported {name} before for {category}, the reason: {reason}. Details: {details}",
 }
+-- ready-made message sets for the Messages tab. [ ... ] parts drop out when
+-- their variable is empty.
+ns.MESSAGE_PRESETS = {
+    {
+        key = "default", label = "Default",
+        report = { ns.DEFAULT_MESSAGE },
+        callout = ns.DEFAULT_CALLOUTS,
+    },
+    {
+        key = "owo", label = "OwO",
+        report = {
+            "OwO what's this? {name} got wepowted fow {category}[... {reason} is vewy nawty] >w<[ Detaiws: {details}]",
+            "*notices {name} doing a {category}* UwU I has towd the GMs![ Weason: {reason}.][ Detaiws: {details}]",
+            "hewwo {name}!! you got wepowted fow {category} x3[ ({reason})] pwease be nice next time![ Detaiws: {details}]",
+            "*nuzzles the wepowt button* {name} was wepowted fow {category}[, the weason: {reason}]. sowwy not sowwy :3[ Detaiws: {details}]",
+        },
+        callout = {
+            "uh oh >w< {name} is in ouw gwoup... I wepowted them befowe fow {category}[, the weason: {reason}]![ Detaiws: {details}]",
+            "hewwo fwiends! smol heads up: I wepowted {name} fow {category} befowe[ ({reason})] UwU[ Detaiws: {details}]",
+        },
+    },
+    {
+        key = "genalpha", label = "Gen Alpha",
+        report = {
+            "{name} got reported for {category}, no cap.[ Caught doing {reason} in 4K.] Negative aura, straight to Ohio.[ Details: {details}]",
+            "Chat is this real? {name} reported for {category} fr fr.[ It's giving {reason}.][ Details: {details}]",
+            "{name} lost all aura points for {category}[ ({reason})]. Not very sigma. Reported, gg go next.[ Details: {details}]",
+            "Bro {name} is cooked. Reported for {category}[, the reason: {reason}]. Skill issue tbh.[ Details: {details}]",
+        },
+        callout = {
+            "Chat, {name} is in the group and I reported them before for {category}[ ({reason})]. Vibes are cooked.[ Details: {details}]",
+            "Not {name} in my party... I reported them for {category}[, the reason: {reason}]. Lowkey sus, stay woke.[ Details: {details}]",
+        },
+    },
+}
+
 ns.TEMPLATE_VARS = { name = true, category = true, reason = true, reasons = true, details = true, zone = true, date = true }
 local MAX_TEMPLATE = 220
 

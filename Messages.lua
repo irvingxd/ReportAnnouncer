@@ -54,8 +54,35 @@ function ns.BuildMessages(page)
         prev = b
     end
 
+    -- presets: replace the messages of the section you're looking at
+    local presetLabel = page:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    presetLabel:SetPoint("TOPLEFT", 4, -102)
+    presetLabel:SetText("Presets:")
+    local prevPreset
+    for _, preset in ipairs(ns.MESSAGE_PRESETS) do
+        local b = CreateFrame("Button", nil, page, "UIPanelButtonTemplate")
+        b:SetSize(96, 20)
+        if prevPreset then b:SetPoint("LEFT", prevPreset, "RIGHT", 4, 0) else b:SetPoint("TOPLEFT", 60, -98) end
+        b:SetText(preset.label)
+        b:SetScript("OnClick", function()
+            local list = Cur()
+            local source = msgState.kind == "callout" and preset.callout or preset.report
+            wipe(list)
+            for _, text in ipairs(source) do list[#list + 1] = text end
+            ns.Print("messages set to the " .. preset.label .. " preset.")
+            ns.RefreshMessages()
+        end)
+        b:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetText("Replace these messages with the " .. preset.label .. " preset")
+            GameTooltip:Show()
+        end)
+        b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        prevPreset = b
+    end
+
     local scroll = CreateFrame("ScrollFrame", "ReportAnnouncerScrollmessages", page, "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT", 0, -98)
+    scroll:SetPoint("TOPLEFT", 0, -124)
     scroll:SetPoint("BOTTOMRIGHT", -24, 34)
     local content = CreateFrame("Frame", nil, scroll)
     content:SetSize(456, 1)
