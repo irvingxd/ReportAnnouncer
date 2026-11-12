@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.2.0
+
+Message update
+
+- Few messages updated
+
 ## 2.1.0
 
 - Mouseover tally added
