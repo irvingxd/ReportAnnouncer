@@ -14,3 +14,4 @@ Comm.lua
 Messages.lua
 History.lua
 Options.lua
+LFG.lua

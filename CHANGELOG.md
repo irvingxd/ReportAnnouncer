@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.3.0
+
+- Group finder: players you reported are marked in the list and its tooltip, with a warning if you apply to their group
+
 ## 2.2.0
 
 Message update
