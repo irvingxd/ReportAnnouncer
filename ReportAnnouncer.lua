@@ -643,6 +643,8 @@ SlashCmdList["REPORTANNOUNCER"] = function(arg)
         if ns.ShowImport then ns.ShowImport() end
     elseif arg == "check" then
         ns.CheckGroupNow()
+    elseif arg == "lfg" then
+        if ns.LFGDebug then ns.LFGDebug() end
     elseif arg:match("^hello") then
         if ns.SayHello then ns.SayHello(arg:match("^hello%s*(.-)$")) end
     elseif arg == "show debug" then

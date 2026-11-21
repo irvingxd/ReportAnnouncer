@@ -8,6 +8,7 @@ function ns.RefreshOptions()
     if checks.tip then checks.tip:SetChecked(db.tooltip) end
     if checks.callout then checks.callout:SetChecked(db.callout) end
     if checks.share then checks.share:SetChecked(db.shareCount) end
+    if checks.lfg then checks.lfg:SetChecked(db.lfg ~= false) end
     for key, cb in pairs(checks.chan or {}) do cb:SetChecked(db.announce[key]) end
     for key, b in pairs(checks.theme or {}) do b:SetEnabled(key ~= ns.GetThemeKey()) end
 end
@@ -84,9 +85,26 @@ function ns.BuildOptions(page)
     shareLabel:SetPoint("LEFT", checks.share, "RIGHT", 2, 0)
     shareLabel:SetText("Share my report count with other addon users")
 
+    checks.lfg = CreateFrame("CheckButton", nil, page, "UICheckButtonTemplate")
+    checks.lfg:SetSize(24, 24)
+    checks.lfg:SetPoint("TOPLEFT", 0, -112)
+    checks.lfg:SetScript("OnClick", function(self)
+        ns.InitDB().lfg = self:GetChecked() and true or false
+    end)
+    checks.lfg:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Group finder")
+        GameTooltip:AddLine("Marks players you reported in the Looking For Group list, adds them to its tooltip, and warns you (only you) when a search shows them or you apply to their group. Matches by name. Your own list only.", 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    checks.lfg:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    local lfgLabel = page:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    lfgLabel:SetPoint("LEFT", checks.lfg, "RIGHT", 2, 0)
+    lfgLabel:SetText("Mark reported players in the group finder")
+
     -- theme
     local themeLabel = page:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    themeLabel:SetPoint("TOPLEFT", 4, -128)
+    themeLabel:SetPoint("TOPLEFT", 4, -154)
     themeLabel:SetText("Theme:")
     checks.theme = {}
     local prevBtn

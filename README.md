@@ -22,6 +22,7 @@ that share it (including Classic Forever).
 - **Minimap button** that opens your report history: name, category and reasons, your
   details, the zone (including sub-zone) and the date.
 - **Tooltip summary** ("Reported by you") when you mouse over a player you reported.
+- **Group finder marks:** players you reported are highlighted in the Looking For Group list, listed in its tooltip, and you get a private warning when a search shows them or you apply to their group. The group finder only gives names, so this matches by name. Switch in Options.
 - **Group callout (opt-in):** if a player you reported is in your party or raid, a notice is
   posted in party/raid chat, including your details.
 - **Switches** for the tooltip, the callout and each chat channel (`/say`, `/party`, `/raid`).
@@ -47,6 +48,7 @@ that share it (including Classic Forever).
 | `/reportannouncer export` / `import` | Share your list / import someone else's |
 | `/reportannouncer test` | Send a sample message |
 | `/reportannouncer check` | Run the group callout check now and explain the result |
+| `/reportannouncer lfg` | Show what the addon can see in the group finder |
 
 ## Notes
 
